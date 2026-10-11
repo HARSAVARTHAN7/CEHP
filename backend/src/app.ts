@@ -4,6 +4,8 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import cookieParser from 'cookie-parser';
+import mongoose from 'mongoose';
+import { connectDB } from './config/database';
 import { config } from './config/env';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 import { logger } from './utils/logger';
@@ -24,7 +26,9 @@ app.use(helmet({
 }));
 
 app.use(cors({
-  origin: config.frontendOrigin,
+  origin: (origin, callback) => {
+    callback(null, true);
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
@@ -39,6 +43,18 @@ app.use(morgan('combined', {
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(cookieParser());
+
+// Serverless DB connection middleware
+app.use(async (_req, _res, next) => {
+  if (mongoose.connection.readyState === 0 && config.mongodbUri) {
+    try {
+      await connectDB();
+    } catch {
+      // Standby mode
+    }
+  }
+  next();
+});
 
 // Health check
 app.get('/health', (_req, res) => {

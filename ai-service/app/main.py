@@ -20,6 +20,7 @@ app.add_middleware(
 
 # Mount Routers
 app.include_router(academic_ai.router)
+app.include_router(academic_ai.router, prefix="/api")
 
 @app.get("/health", tags=["Health"])
 async def health_check():
