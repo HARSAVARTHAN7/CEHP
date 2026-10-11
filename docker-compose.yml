@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:7.0
+    container_name: cehp-mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: cehp_admin
+      MONGO_INITDB_ROOT_PASSWORD: cehp_dev_password
+      MONGO_INITDB_DATABASE: cehp_db
+    volumes:
+      - mongodb_data:/data/db
+      - ./scripts/mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+    networks:
+      - cehp-network
+
+  mongo-express:
+    image: mongo-express:latest
+    container_name: cehp-mongo-express
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    environment:
+      ME_CONFIG_MONGODB_ADMINUSERNAME: cehp_admin
+      ME_CONFIG_MONGODB_ADMINPASSWORD: cehp_dev_password
+      ME_CONFIG_MONGODB_URL: mongodb://cehp_admin:cehp_dev_password@mongodb:27017/
+      ME_CONFIG_BASICAUTH: false
+    depends_on:
+      - mongodb
+    networks:
+      - cehp-network
+
+volumes:
+  mongodb_data:
+
+networks:
+  cehp-network:
+    driver: bridge
