@@ -62,13 +62,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     <div className="flex flex-col h-full bg-[#090d16]">
       {/* Logo */}
       <div className={cn('flex items-center gap-3 px-4 py-5 border-b border-slate-800/80', sidebarCollapsed && 'justify-center px-2')}>
-        <div className="flex-shrink-0 w-9 h-9 bg-gradient-to-tr from-indigo-600 to-indigo-500 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-600/30">
-          <GraduationCap className="w-5 h-5 text-white" />
+        <div className="flex-shrink-0 w-10 h-10 flex items-center justify-center">
+          <img src="/logo.png" alt="CEHP Academic Logo" className="w-10 h-10 object-contain drop-shadow" />
         </div>
         {!sidebarCollapsed && (
           <div>
             <p className="text-sm font-bold text-white tracking-wide leading-tight">CEHP Portal</p>
-            <p className="text-xs text-indigo-400 font-medium">Academic Assistant</p>
+            <p className="text-xs text-amber-400 font-medium">Academic Examination</p>
           </div>
         )}
       </div>

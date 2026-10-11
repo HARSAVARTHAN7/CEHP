@@ -53,8 +53,8 @@ export default function LoginPage() {
       <div className="relative w-full max-w-md">
         {/* Header */}
         <div className="text-center mb-6">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-tr from-indigo-600 to-indigo-500 rounded-2xl shadow-xl shadow-indigo-600/30 mb-3 border border-indigo-500/20">
-            <GraduationCap className="w-8 h-8 text-white" />
+          <div className="inline-flex items-center justify-center w-20 h-20 mb-3">
+            <img src="/logo.png" alt="CEHP Academic Logo" className="w-20 h-20 object-contain drop-shadow-2xl" />
           </div>
           <h1 className="text-2xl font-extrabold text-white tracking-tight">CEHP Portal</h1>
           <p className="text-slate-400 text-sm mt-1">
