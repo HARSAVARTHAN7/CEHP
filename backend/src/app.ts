@@ -62,13 +62,15 @@ app.get('/health', (_req, res) => {
 });
 
 // API routes
-const API_PREFIX = '/api/v1';
-app.use(`${API_PREFIX}/auth`, authRoutes);
-app.use(`${API_PREFIX}/users`, userRoutes);
-app.use(`${API_PREFIX}`, academicRoutes);
-app.use(`${API_PREFIX}`, resultRoutes);
-app.use(`${API_PREFIX}/notifications`, notificationRoutes);
-app.use(`${API_PREFIX}/ai`, aiRoutes);
+const prefixes = ['/api/v1', '/v1', '/api'];
+prefixes.forEach((p) => {
+  app.use(`${p}/auth`, authRoutes);
+  app.use(`${p}/users`, userRoutes);
+  app.use(`${p}`, academicRoutes);
+  app.use(`${p}`, resultRoutes);
+  app.use(`${p}/notifications`, notificationRoutes);
+  app.use(`${p}/ai`, aiRoutes);
+});
 
 // Not found and error handlers (must be last)
 app.use(notFoundHandler);

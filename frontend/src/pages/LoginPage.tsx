@@ -32,7 +32,14 @@ export default function LoginPage() {
       await login(data.email, data.password);
       navigate('/dashboard');
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Login failed. Please check your credentials.');
+      const serverMessage = err.response?.data?.message;
+      if (serverMessage) {
+        setError(serverMessage);
+      } else if (err.code === 'ERR_NETWORK' || !err.response) {
+        setError('Cannot connect to the backend server. Please verify your connection.');
+      } else {
+        setError(err.message || 'Login failed. Please check your credentials.');
+      }
     }
   };
 
