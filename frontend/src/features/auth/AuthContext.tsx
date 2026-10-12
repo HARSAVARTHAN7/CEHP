@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { User } from '../../types';
 import { authApi } from '../../services/api';
 
@@ -14,6 +15,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const navigate = useNavigate();
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -98,7 +100,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Ignore network errors on logout
     }
     setUser(null);
-    window.location.href = '/login';
+    navigate('/login', { replace: true });
   };
 
   return (
