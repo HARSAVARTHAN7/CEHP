@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   GraduationCap, LayoutDashboard, BookOpen, BarChart3, BrainCircuit,
@@ -53,6 +53,33 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  const handleOpenLogoutConfirm = () => {
+    setMobileOpen(false);
+    setShowLogoutConfirm(true);
+  };
+
+  const handleConfirmLogout = async () => {
+    setIsLoggingOut(true);
+    try {
+      await logout();
+    } finally {
+      setIsLoggingOut(false);
+      setShowLogoutConfirm(false);
+    }
+  };
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && showLogoutConfirm && !isLoggingOut) {
+        setShowLogoutConfirm(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showLogoutConfirm, isLoggingOut]);
 
   const filteredNav = navItems.filter((item) =>
     user?.role ? item.roles.includes(user.role) : false
@@ -106,7 +133,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       <div className={cn('border-t border-slate-800/80 p-3 bg-[#070b13]', sidebarCollapsed && 'flex justify-center')}>
         {sidebarCollapsed ? (
           <button
-            onClick={logout}
+            onClick={handleOpenLogoutConfirm}
             className="p-2 text-slate-400 hover:text-rose-400 rounded-lg hover:bg-rose-500/10 transition-all"
             title="Logout"
           >
@@ -122,7 +149,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               <p className="text-xs text-indigo-400/80 font-medium truncate">{user?.role?.replace('_', ' ')}</p>
             </div>
             <button
-              onClick={logout}
+              onClick={handleOpenLogoutConfirm}
               className="p-1.5 text-slate-400 hover:text-rose-400 rounded-lg hover:bg-rose-500/10 transition-all"
               title="Logout"
             >
@@ -219,6 +246,85 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </main>
       </div>
+
+      {/* Logout Confirmation Modal */}
+      {showLogoutConfirm && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150"
+          onClick={() => !isLoggingOut && setShowLogoutConfirm(false)}
+        >
+          <div
+            className="relative w-full max-w-md bg-[#0b101b] border border-slate-800 rounded-2xl shadow-2xl p-6 text-slate-100 overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Ambient accent glow */}
+            <div className="absolute -top-16 -right-16 w-36 h-36 bg-rose-500/10 rounded-full blur-3xl pointer-events-none" />
+
+            <div className="flex items-start gap-4">
+              <div className="w-11 h-11 rounded-xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center flex-shrink-0 text-rose-400 shadow-inner">
+                <LogOut className="w-5 h-5" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-base font-bold text-white tracking-tight">Confirm Sign Out</h3>
+                <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
+                  Are you sure you want to log out of your session? You will be returned to the sign-in page.
+                </p>
+                {user && (
+                  <div className="mt-3.5 py-2 px-3 rounded-lg bg-slate-900/90 border border-slate-800/80 flex items-center gap-2.5">
+                    <div className="w-6 h-6 rounded-full bg-indigo-950 border border-indigo-700/60 flex items-center justify-center text-indigo-300 font-bold text-[11px] flex-shrink-0">
+                      {user.name?.charAt(0) || 'U'}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-semibold text-slate-200 truncate">{user.name}</p>
+                      <p className="text-[11px] text-indigo-400/80 font-medium truncate">{user.role?.replace('_', ' ')} • {user.email}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+              <button
+                type="button"
+                disabled={isLoggingOut}
+                onClick={() => setShowLogoutConfirm(false)}
+                className="text-slate-400 hover:text-slate-200 p-1 rounded-lg hover:bg-slate-800/60 transition-colors"
+                title="Close"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="mt-6 flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                disabled={isLoggingOut}
+                onClick={() => setShowLogoutConfirm(false)}
+                className="px-4 py-2 rounded-xl border border-slate-700/80 bg-slate-800/50 hover:bg-slate-800 text-slate-300 hover:text-white text-xs font-semibold transition-all disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isLoggingOut}
+                onClick={handleConfirmLogout}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 active:scale-95 text-white text-xs font-semibold shadow-lg shadow-rose-600/30 transition-all disabled:opacity-50 disabled:pointer-events-none"
+              >
+                {isLoggingOut ? (
+                  <>
+                    <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <span>Signing out...</span>
+                  </>
+                ) : (
+                  <>
+                    <LogOut className="w-3.5 h-3.5" />
+                    <span>Yes, Sign Out</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
