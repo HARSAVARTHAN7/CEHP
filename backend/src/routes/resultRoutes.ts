@@ -32,5 +32,6 @@ router.post('/results/:id/publish', authorize('EXAM_OFFICER', 'ADMIN'), publishR
 
 // Bulk publish by examination (ONLY EXAM_OFFICER and ADMIN)
 router.post('/examinations/:examinationId/publish-results', authorize('EXAM_OFFICER', 'ADMIN'), publishExaminationResults);
+router.post('/examinations/:examinationId/publish', authorize('EXAM_OFFICER', 'ADMIN'), publishExaminationResults);
 
 export default router;

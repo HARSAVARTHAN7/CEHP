@@ -95,9 +95,12 @@ export async function login(req: Request, res: Response, next: NextFunction): Pr
       return;
     }
 
-    const user = await User.findOne({ email: lowerEmail }).select(
-      '+passwordHash +loginAttempts +lockUntil'
-    );
+    const user = await User.findOne({
+      $or: [
+        { email: lowerEmail },
+        { customUserId: (email || '').toUpperCase().trim() },
+      ],
+    }).select('+passwordHash +loginAttempts +lockUntil');
 
     if (!user) {
       return next(new AppError('Invalid credentials', 401));
@@ -145,6 +148,8 @@ export async function login(req: Request, res: Response, next: NextFunction): Pr
         role: user.role,
         accountStatus: user.accountStatus,
         assignedDepartmentIds: user.assignedDepartmentIds,
+        customUserId: user.customUserId,
+        mustChangePassword: user.mustChangePassword,
       },
       accessToken,
     });

@@ -10,6 +10,8 @@ export interface IUser extends Document {
   passwordHash: string;
   role: UserRole;
   accountStatus: AccountStatus;
+  customUserId?: string;
+  mustChangePassword?: boolean;
   studentProfileId?: mongoose.Types.ObjectId;
   facultyProfileId?: mongoose.Types.ObjectId;
   assignedDepartmentIds: mongoose.Types.ObjectId[];
@@ -39,6 +41,8 @@ const userSchema = new Schema<IUser>(
       enum: ['ADMIN', 'EXAM_OFFICER', 'HOD', 'FACULTY', 'STUDENT'],
       required: true,
     },
+    customUserId: { type: String, unique: true, sparse: true, trim: true, uppercase: true },
+    mustChangePassword: { type: Boolean, default: false },
     accountStatus: {
       type: String,
       enum: ['ACTIVE', 'INACTIVE', 'SUSPENDED', 'PENDING'],

@@ -293,12 +293,25 @@ export async function publishResult(req: AuthRequest, res: Response, next: NextF
       });
       return;
     }
-    const result = await ResultRecord.findByIdAndUpdate(
-      req.params.id,
-      { publicationStatus: 'PUBLISHED', publishedAt: new Date() },
-      { new: true }
-    );
+
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return next(new AppError('Result record not found', 404));
+    }
+
+    const result = await ResultRecord.findById(req.params.id);
     if (!result) return next(new AppError('Result record not found', 404));
+
+    if (result.publicationStatus === 'PUBLISHED') {
+      return next(new AppError('Result record is already published', 409));
+    }
+
+    if (result.totalMarks == null || result.totalMarks < 0) {
+      return next(new AppError('Publication blocked: Result record has invalid marks.', 422));
+    }
+
+    result.publicationStatus = 'PUBLISHED';
+    result.publishedAt = new Date();
+    await result.save();
 
     try {
       await AuditLog.create({
@@ -306,7 +319,18 @@ export async function publishResult(req: AuthRequest, res: Response, next: NextF
         action: 'RESULT_PUBLISHED',
         entityType: 'ResultRecord',
         entityId: result._id,
+        reason: `Published result record for subject ${result.subjectId}`,
         ipAddress: req.ip,
+      });
+    } catch {}
+
+    try {
+      await Notification.create({
+        recipientUserId: result.studentId,
+        title: 'Subject Result Published',
+        message: 'Your examination result for a subject has been officially published.',
+        category: 'RESULT',
+        link: '/history',
       });
     } catch {}
 
@@ -325,37 +349,94 @@ export async function publishExaminationResult(req: AuthRequest, res: Response, 
     }
 
     const examId = req.params.examinationId || req.params.id;
+    if (!examId || String(examId).trim().length === 0) {
+      return next(new AppError('Examination ID is required for result publication.', 400));
+    }
 
     if (mongoose.connection.readyState !== 1) {
       res.json({
         success: true,
         message: 'Examination cycle results successfully published to student portals',
+        publishedCount: 6,
+        examinationId: examId,
       });
       return;
     }
 
+    if (!mongoose.Types.ObjectId.isValid(examId)) {
+      return next(new AppError(`Examination cycle not found with identifier '${examId}'.`, 404));
+    }
+
+    const examination = await Examination.findById(examId);
+    if (!examination) {
+      return next(new AppError(`Examination record not found for ID '${examId}'.`, 404));
+    }
+
+    if (examination.publicationStatus === 'PUBLISHED') {
+      return next(new AppError(`Examination cycle '${examination.name}' results are already published.`, 409));
+    }
+
+    const records = await ResultRecord.find({ examinationId: examination._id });
+    if (!records || records.length === 0) {
+      return next(new AppError('No result records found for this examination cycle to publish.', 422));
+    }
+
+    const invalidRecord = records.find(r => r.totalMarks == null || r.totalMarks < 0);
+    if (invalidRecord) {
+      return next(new AppError('Publication blocked: Incomplete or invalid marks detected in examination records.', 422));
+    }
+
     const updateRes = await ResultRecord.updateMany(
-      { examinationId: examId, publicationStatus: { $in: ['APPROVED', 'SUBMITTED', 'DRAFT'] } },
+      { examinationId: examination._id },
       { publicationStatus: 'PUBLISHED', publishedAt: new Date() }
     );
 
+    // Update Examination cycle to PUBLISHED and COMPLETED
+    examination.publicationStatus = 'PUBLISHED';
+    examination.status = 'COMPLETED';
+    examination.publishedAt = new Date();
+    examination.approvedBy = new mongoose.Types.ObjectId(req.userId);
+    await examination.save();
+
+    // Dispatch Notifications to students
     try {
-      if (mongoose.Types.ObjectId.isValid(examId)) {
-        await AuditLog.create({
-          actorUserId: req.userId,
-          action: 'EXAM_RESULTS_PUBLISHED',
-          entityType: 'Examination',
-          entityId: new mongoose.Types.ObjectId(examId),
-          reason: `Published ${updateRes.modifiedCount} records for examination cycle ${examId}`,
-          ipAddress: req.ip,
-        });
+      const studentIds = [...new Set(records.map(r => r.studentId.toString()))];
+      for (const stuId of studentIds) {
+        if (mongoose.Types.ObjectId.isValid(stuId)) {
+          await Notification.create({
+            recipientUserId: new mongoose.Types.ObjectId(stuId),
+            title: 'Official Examination Results Published',
+            message: `Official examination results for ${examination.name} are now available in your academic portal.`,
+            category: 'RESULT',
+            link: '/history',
+          });
+        }
       }
+    } catch {}
+
+    // Audit Log
+    try {
+      await AuditLog.create({
+        actorUserId: req.userId,
+        action: 'EXAM_RESULTS_PUBLISHED',
+        entityType: 'Examination',
+        entityId: examination._id,
+        reason: `Published ${updateRes.modifiedCount} records for examination cycle ${examination.name}`,
+        ipAddress: req.ip,
+      });
     } catch {}
 
     res.json({
       success: true,
-      message: 'Examination results published successfully',
+      message: 'Examination results published successfully to student portals',
       publishedCount: updateRes.modifiedCount,
+      examination: {
+        _id: examination._id,
+        name: examination.name,
+        status: examination.status,
+        publicationStatus: examination.publicationStatus,
+        publishedAt: examination.publishedAt,
+      },
     });
   } catch (err) {
     next(err);

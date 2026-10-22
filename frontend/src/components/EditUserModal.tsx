@@ -7,6 +7,7 @@ import { userApi } from '../services/api';
 import { User, UserRole } from '../types';
 import { cn } from '../lib/utils';
 import { ConfirmModal } from './ConfirmModal';
+import { useAuth } from '../features/auth/AuthContext';
 
 interface EditUserModalProps {
   isOpen: boolean;
@@ -23,6 +24,7 @@ export function EditUserModal({
   onSaveSuccess,
   onDeleteSuccess,
 }: EditUserModalProps) {
+  const { user: currentUser } = useAuth();
   const isCreateMode = !user;
 
   const [name, setName] = useState('');
@@ -307,13 +309,18 @@ export function EditUserModal({
                   <select
                     value={role}
                     onChange={(e) => setRole(e.target.value as UserRole)}
-                    className="w-full bg-[#030712] border border-slate-700 rounded-xl pl-9 pr-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-indigo-500"
+                    disabled={currentUser?.role === 'EXAM_OFFICER' && !!user && (user.role === 'ADMIN' || user.role === 'HOD' || user.role === 'EXAM_OFFICER')}
+                    className="w-full bg-[#030712] border border-slate-700 rounded-xl pl-9 pr-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-indigo-500 disabled:opacity-50"
                   >
                     <option value="STUDENT">STUDENT</option>
                     <option value="FACULTY">FACULTY</option>
-                    <option value="HOD">HOD</option>
-                    <option value="EXAM_OFFICER">EXAM_OFFICER</option>
-                    <option value="ADMIN">ADMIN</option>
+                    {currentUser?.role === 'ADMIN' && (
+                      <>
+                        <option value="HOD">HOD</option>
+                        <option value="EXAM_OFFICER">EXAM_OFFICER</option>
+                        <option value="ADMIN">ADMIN</option>
+                      </>
+                    )}
                   </select>
                 </div>
               </div>

@@ -4,11 +4,12 @@ import { Link } from 'react-router-dom';
 import {
   FileCheck2, CheckCircle2, XCircle, Clock, AlertCircle,
   Search, Filter, ChevronRight, Eye, ShieldAlert, Award, Send,
-  BookPlus, ArrowRight
+  BookPlus, ArrowRight, UserPlus
 } from 'lucide-react';
 import { academicApi, resultApi } from '../../services/api';
 import { cn, formatDate } from '../../lib/utils';
 import { AddCourseModal } from '../../components/AddCourseModal';
+import { ExamOfficerAccountModal } from '../../components/ExamOfficerAccountModal';
 
 const DEMO_OFFICER_RESULTS = [
   {
@@ -105,6 +106,7 @@ export function ExamOfficerDashboard() {
   const [activeTab, setActiveTab] = useState<'pending' | 'approved' | 'all'>('pending');
   const [filterSubject, setFilterSubject] = useState('');
   const [isAddCourseOpen, setIsAddCourseOpen] = useState(false);
+  const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [localApprovedIds, setLocalApprovedIds] = useState<string[]>([]);
 
@@ -200,7 +202,14 @@ export function ExamOfficerDashboard() {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            onClick={() => setIsAccountModalOpen(true)}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-semibold text-sm transition-all shadow-lg shadow-blue-600/30 active:scale-95 whitespace-nowrap"
+          >
+            <UserPlus className="w-4 h-4" />
+            Provision Account
+          </button>
           <button
             onClick={() => setIsAddCourseOpen(true)}
             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-semibold text-sm transition-all shadow-lg shadow-emerald-600/30 active:scale-95 whitespace-nowrap"
@@ -474,6 +483,15 @@ export function ExamOfficerDashboard() {
         onSuccess={(created) => {
           setToastMessage(`Course "${created.code} - ${created.name}" successfully added to academic curriculum.`);
           setTimeout(() => setToastMessage(null), 5000);
+        }}
+      />
+      {/* Account Provisioning Modal */}
+      <ExamOfficerAccountModal
+        isOpen={isAccountModalOpen}
+        onClose={() => setIsAccountModalOpen(false)}
+        onAccountCreated={(acc) => {
+          setToastMessage(`Account for ${acc.name} (${acc.role}) provisioned successfully with institutional ID ${acc.customUserId || acc.generatedUserId || ''}.`);
+          setTimeout(() => setToastMessage(null), 6000);
         }}
       />
     </div>

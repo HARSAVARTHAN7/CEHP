@@ -257,4 +257,120 @@ describe('RBAC, HOD Authentication, and Authoritative Publication Tests', () => 
     const deleteRes = await request(app).delete('/api/v1/users/usr_new');
     expect(deleteRes.status).toBe(200);
   });
+
+  // Test 8: Exam Officer Account Creation, Unique User ID Generation, and Temporary Password Setup
+  it('allows Examination Officer to create STUDENT and FACULTY accounts with generated unique User ID and temporary password', async () => {
+    const app = express();
+    app.use(express.json());
+    app.use((req: any, _res: Response, next: NextFunction) => {
+      req.userId = 'usr_exam';
+      req.userRole = 'EXAM_OFFICER';
+      req.userEmail = 'controller@cehp.edu';
+      next();
+    });
+
+    app.post('/api/v1/users', authorize('ADMIN', 'EXAM_OFFICER'), createUser);
+    app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+      res.status(err.statusCode || 500).json({ success: false, message: err.message });
+    });
+
+    // 1. Create Student account
+    const studentRes = await request(app).post('/api/v1/users').send({
+      name: 'Vikas Kumar',
+      email: 'vikas.kumar@cehp.edu',
+      role: 'STUDENT',
+      departmentId: 'dept_cse',
+      currentSemester: 3,
+      batch: '2024-2028',
+    });
+
+    expect(studentRes.status).toBe(201);
+    expect(studentRes.body.success).toBe(true);
+    expect(studentRes.body.data.role).toBe('STUDENT');
+    expect(studentRes.body.generatedUserId).toMatch(/^STU-\d{4}-\d{4}$/);
+    expect(studentRes.body.temporaryPassword).toBeDefined();
+    expect(studentRes.body.temporaryPassword.length).toBeGreaterThanOrEqual(8);
+    expect(studentRes.body.data.mustChangePassword).toBe(true);
+
+    // 2. Create Faculty account
+    const facultyRes = await request(app).post('/api/v1/users').send({
+      name: 'Dr. Priya Nambiar',
+      email: 'priya.nambiar@cehp.edu',
+      role: 'FACULTY',
+      departmentId: 'dept_cse',
+      designation: 'Associate Professor',
+    });
+
+    expect(facultyRes.status).toBe(201);
+    expect(facultyRes.body.success).toBe(true);
+    expect(facultyRes.body.data.role).toBe('FACULTY');
+    expect(facultyRes.body.generatedUserId).toMatch(/^FAC-\d{4}-\d{4}$/);
+    expect(facultyRes.body.temporaryPassword).toBeDefined();
+  });
+
+  // Test 9: Strict Centralized RBAC: Exam Officer cannot create HOD, EXAM_OFFICER, or ADMIN
+  it('strictly rejects Examination Officer attempting to create HOD, EXAM_OFFICER, or ADMIN accounts with HTTP 403', async () => {
+    const app = express();
+    app.use(express.json());
+    app.use((req: any, _res: Response, next: NextFunction) => {
+      req.userId = 'usr_exam';
+      req.userRole = 'EXAM_OFFICER';
+      req.userEmail = 'controller@cehp.edu';
+      next();
+    });
+
+    app.post('/api/v1/users', authorize('ADMIN', 'EXAM_OFFICER'), createUser);
+    app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+      res.status(err.statusCode || 500).json({ success: false, message: err.message });
+    });
+
+    // 1. Attempt to create HOD
+    const hodRes = await request(app).post('/api/v1/users').send({
+      name: 'Dr. Unauthorized HOD',
+      email: 'unauth.hod@cehp.edu',
+      role: 'HOD',
+    });
+    expect(hodRes.status).toBe(403);
+    expect(hodRes.body.message).toMatch(/Forbidden.*permitted to create Student and Faculty accounts only/i);
+
+    // 2. Attempt to create another Exam Officer
+    const examRes = await request(app).post('/api/v1/users').send({
+      name: 'Dr. Unauthorized COE',
+      email: 'unauth.coe@cehp.edu',
+      role: 'EXAM_OFFICER',
+    });
+    expect(examRes.status).toBe(403);
+    expect(examRes.body.message).toMatch(/Forbidden.*permitted to create Student and Faculty accounts only/i);
+
+    // 3. Attempt to create Administrator
+    const adminRes = await request(app).post('/api/v1/users').send({
+      name: 'Unauthorized Super Admin',
+      email: 'unauth.admin@cehp.edu',
+      role: 'ADMIN',
+    });
+    expect(adminRes.status).toBe(403);
+    expect(adminRes.body.message).toMatch(/Forbidden.*permitted to create Student and Faculty accounts only/i);
+  });
+
+  // Test 10: Result Publication Validation and Error Handling
+  it('validates examination identifier and handles publication error conditions', async () => {
+    const app = express();
+    app.use(express.json());
+    app.use((req: any, _res: Response, next: NextFunction) => {
+      req.userId = 'usr_exam';
+      req.userRole = 'EXAM_OFFICER';
+      next();
+    });
+
+    app.post('/api/v1/examinations/:examinationId/publish-results', authorize('EXAM_OFFICER', 'ADMIN'), publishExaminationResult);
+    app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+      res.status(err.statusCode || 500).json({ success: false, message: err.message });
+    });
+
+    // Valid exam publication call
+    const okRes = await request(app).post('/api/v1/examinations/exam_2025_even/publish-results');
+    expect(okRes.status).toBe(200);
+    expect(okRes.body.success).toBe(true);
+    expect(okRes.body.message).toMatch(/Examination.*results.*published/i);
+  });
 });
