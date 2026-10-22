@@ -109,11 +109,43 @@ export async function listSubjects(req: AuthRequest, res: Response, next: NextFu
 
 export async function createSubject(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
   try {
+    const payload: Record<string, any> = {
+      code: req.body.code ? String(req.body.code).trim().toUpperCase() : '',
+      name: req.body.name ? String(req.body.name).trim() : '',
+      credits: Number(req.body.credits || 4),
+      applicableSemester: Number(req.body.applicableSemester || req.body.semester || 1),
+      subjectType: req.body.subjectType || req.body.type || 'THEORY',
+      internalMaxMarks: Number(req.body.internalMaxMarks || 40),
+      externalMaxMarks: Number(req.body.externalMaxMarks || 60),
+      totalMaxMarks: Number(req.body.totalMaxMarks || req.body.maxMarks || 100),
+      assignedFacultyName: req.body.assignedFacultyName || req.body.facultyAssigned || req.body.assignedFaculty || '',
+      assignedFacultyId: req.body.assignedFacultyId || undefined,
+      activeStatus: req.body.activeStatus || 'ACTIVE',
+      ...req.body,
+    };
+
     if (mongoose.connection.readyState !== 1) {
-      res.status(201).json({ success: true, data: { ...req.body, _id: 'sub_new' } });
+      const newSub = {
+        _id: `sub_${Date.now()}`,
+        ...payload,
+        type: payload.subjectType,
+        maxMarks: payload.totalMaxMarks,
+      };
+      MOCK_SUBJECTS.unshift(newSub as any);
+      res.status(201).json({ success: true, data: newSub });
       return;
     }
-    const subject = await Subject.create(req.body);
+
+    if (!payload.departmentId) {
+      const defaultDept = await Department.findOne();
+      if (defaultDept) payload.departmentId = defaultDept._id;
+    }
+    if (!payload.programId) {
+      const defaultProg = await Program.findOne();
+      if (defaultProg) payload.programId = defaultProg._id;
+    }
+
+    const subject = await Subject.create(payload);
     res.status(201).json({ success: true, data: subject });
   } catch (err) { next(err); }
 }

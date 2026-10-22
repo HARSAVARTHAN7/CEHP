@@ -3,10 +3,11 @@ import { useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
   Building2, BookOpen, Layers, PlusCircle, CheckCircle2,
-  Calendar, Award, Hash, ArrowRight
+  Calendar, Award, Hash, ArrowRight, BookPlus, UserCheck
 } from 'lucide-react';
 import { academicApi } from '../../services/api';
 import { cn } from '../../lib/utils';
+import { AddCourseModal } from '../../components/AddCourseModal';
 
 export function AcademicManagementPage() {
   const location = useLocation();
@@ -18,6 +19,8 @@ export function AcademicManagementPage() {
   };
 
   const [activeTab, setActiveTab] = useState<'departments' | 'subjects' | 'semesters'>(getInitialTab);
+  const [isAddCourseOpen, setIsAddCourseOpen] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (location.pathname === '/departments') {
@@ -57,7 +60,24 @@ export function AcademicManagementPage() {
             Configure institutional departments, degree programs, subjects with credit allocations, and terms.
           </p>
         </div>
+
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setIsAddCourseOpen(true)}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-semibold text-xs transition-all shadow-lg shadow-emerald-600/30 active:scale-95 whitespace-nowrap"
+          >
+            <BookPlus className="w-4 h-4" />
+            Add Course
+          </button>
+        </div>
       </div>
+
+      {toastMessage && (
+        <div className="p-4 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-sm flex items-center gap-2 font-medium animate-in fade-in">
+          <CheckCircle2 className="w-5 h-5 shrink-0 text-emerald-400" />
+          <span>{toastMessage}</span>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="flex items-center gap-2 bg-[#0a0f1d] p-2 rounded-xl border border-slate-800 shadow-md">
@@ -110,6 +130,8 @@ export function AcademicManagementPage() {
                 <tr className="border-b border-slate-800 text-xs uppercase font-semibold text-slate-300 bg-[#060a12]">
                   <th className="py-3.5 px-4">Code</th>
                   <th className="py-3.5 px-4">Subject Name</th>
+                  <th className="py-3.5 px-4">Assigned Faculty</th>
+                  <th className="py-3.5 px-4 text-center">Semester</th>
                   <th className="py-3.5 px-4 text-center">Credits</th>
                   <th className="py-3.5 px-4 text-center">Type</th>
                   <th className="py-3.5 px-4 text-center">Max Marks</th>
@@ -117,24 +139,37 @@ export function AcademicManagementPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/80 text-sm">
-                {subjects.map((sub: any) => (
-                  <tr key={sub._id} className="hover:bg-slate-800/40 transition-colors">
-                    <td className="py-3.5 px-4 font-mono font-bold text-indigo-400">{sub.code}</td>
-                    <td className="py-3.5 px-4 font-semibold text-slate-100">{sub.name}</td>
-                    <td className="py-3.5 px-4 text-center font-mono text-slate-200 font-bold">{sub.credits}</td>
-                    <td className="py-3.5 px-4 text-center">
-                      <span className="px-2.5 py-0.5 rounded text-xs bg-slate-800 text-slate-300 font-semibold uppercase">
-                        {sub.type || 'THEORY'}
-                      </span>
-                    </td>
-                    <td className="py-3.5 px-4 text-center font-mono text-slate-300 font-medium">{sub.maxMarks || 100}</td>
-                    <td className="py-3.5 px-4 text-center">
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
-                        Active
-                      </span>
-                    </td>
-                  </tr>
-                ))}
+                {subjects.map((sub: any) => {
+                  const facultyName = sub.assignedFacultyName || sub.facultyAssigned || sub.assignedFaculty || 'Prof. Faculty Member';
+                  const semNum = sub.applicableSemester || sub.semester || 5;
+                  return (
+                    <tr key={sub._id} className="hover:bg-slate-800/40 transition-colors">
+                      <td className="py-3.5 px-4 font-mono font-bold text-indigo-400">{sub.code}</td>
+                      <td className="py-3.5 px-4 font-semibold text-slate-100">{sub.name}</td>
+                      <td className="py-3.5 px-4">
+                        <div className="flex items-center gap-1.5 text-xs text-slate-200">
+                          <UserCheck className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                          <span className="font-medium truncate max-w-[160px]">{facultyName}</span>
+                        </div>
+                      </td>
+                      <td className="py-3.5 px-4 text-center font-mono text-xs font-semibold text-purple-300">
+                        Sem {semNum}
+                      </td>
+                      <td className="py-3.5 px-4 text-center font-mono text-slate-200 font-bold">{sub.credits}</td>
+                      <td className="py-3.5 px-4 text-center">
+                        <span className="px-2.5 py-0.5 rounded text-xs bg-slate-800 text-slate-300 font-semibold uppercase">
+                          {sub.type || sub.subjectType || 'THEORY'}
+                        </span>
+                      </td>
+                      <td className="py-3.5 px-4 text-center font-mono text-slate-300 font-medium">{sub.maxMarks || sub.totalMaxMarks || 100}</td>
+                      <td className="py-3.5 px-4 text-center">
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+                          Active
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -176,6 +211,15 @@ export function AcademicManagementPage() {
           ))}
         </div>
       )}
+      {/* Add Course Modal */}
+      <AddCourseModal
+        isOpen={isAddCourseOpen}
+        onClose={() => setIsAddCourseOpen(false)}
+        onSuccess={(created) => {
+          setToastMessage(`Course "${created.code} - ${created.name}" successfully added to academic curriculum.`);
+          setTimeout(() => setToastMessage(null), 5000);
+        }}
+      />
     </div>
   );
 }

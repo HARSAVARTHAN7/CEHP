@@ -13,6 +13,8 @@ export interface ISubject extends Document {
   externalMaxMarks: number;
   totalMaxMarks: number;
   activeStatus: 'ACTIVE' | 'INACTIVE';
+  assignedFacultyId?: mongoose.Types.ObjectId;
+  assignedFacultyName?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -22,8 +24,8 @@ const subjectSchema = new Schema<ISubject>(
     code: { type: String, required: true, unique: true, uppercase: true, trim: true },
     name: { type: String, required: true, trim: true },
     credits: { type: Number, required: true, min: 0, max: 10 },
-    departmentId: { type: Schema.Types.ObjectId, ref: 'Department', required: true },
-    programId: { type: Schema.Types.ObjectId, ref: 'Program', required: true },
+    departmentId: { type: Schema.Types.ObjectId, ref: 'Department' },
+    programId: { type: Schema.Types.ObjectId, ref: 'Program' },
     applicableSemester: { type: Number, required: true, min: 1, max: 20 },
     subjectType: {
       type: String,
@@ -33,6 +35,8 @@ const subjectSchema = new Schema<ISubject>(
     internalMaxMarks: { type: Number, required: true, default: 40 },
     externalMaxMarks: { type: Number, required: true, default: 60 },
     totalMaxMarks: { type: Number, required: true, default: 100 },
+    assignedFacultyId: { type: Schema.Types.ObjectId, ref: 'User' },
+    assignedFacultyName: { type: String, trim: true },
     activeStatus: { type: String, enum: ['ACTIVE', 'INACTIVE'], default: 'ACTIVE' },
   },
   { timestamps: true }

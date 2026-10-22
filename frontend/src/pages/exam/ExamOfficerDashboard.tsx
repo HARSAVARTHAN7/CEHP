@@ -3,14 +3,18 @@ import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import {
   FileCheck2, CheckCircle2, XCircle, Clock, AlertCircle,
-  Search, Filter, ChevronRight, Eye, ShieldAlert, Award, Send
+  Search, Filter, ChevronRight, Eye, ShieldAlert, Award, Send,
+  BookPlus
 } from 'lucide-react';
 import { academicApi, resultApi } from '../../services/api';
 import { cn, formatDate } from '../../lib/utils';
+import { AddCourseModal } from '../../components/AddCourseModal';
 
 export function ExamOfficerDashboard() {
   const [activeTab, setActiveTab] = useState<'pending' | 'approved' | 'all'>('pending');
   const [filterSubject, setFilterSubject] = useState('');
+  const [isAddCourseOpen, setIsAddCourseOpen] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Fetch results
   const { data: resultsData = [], isLoading, refetch } = useQuery({
@@ -74,15 +78,29 @@ export function ExamOfficerDashboard() {
         </div>
 
         <div className="flex items-center gap-3">
+          <button
+            onClick={() => setIsAddCourseOpen(true)}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-semibold text-sm transition-all shadow-lg shadow-emerald-600/30 active:scale-95 whitespace-nowrap"
+          >
+            <BookPlus className="w-4 h-4" />
+            Add Course
+          </button>
           <Link
             to="/exam-officer/publish"
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm transition-all shadow-lg shadow-indigo-600/30 active:scale-95"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm transition-all shadow-lg shadow-indigo-600/30 active:scale-95 whitespace-nowrap"
           >
             <Send className="w-4 h-4" />
             Go to Publish Portal
           </Link>
         </div>
       </div>
+
+      {toastMessage && (
+        <div className="p-4 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-sm flex items-center gap-2 font-medium animate-in fade-in">
+          <CheckCircle2 className="w-5 h-5 shrink-0 text-emerald-400" />
+          <span>{toastMessage}</span>
+        </div>
+      )}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -279,6 +297,15 @@ export function ExamOfficerDashboard() {
           </table>
         </div>
       </div>
+      {/* Add Course Modal Pop-up */}
+      <AddCourseModal
+        isOpen={isAddCourseOpen}
+        onClose={() => setIsAddCourseOpen(false)}
+        onSuccess={(created) => {
+          setToastMessage(`Course "${created.code} - ${created.name}" successfully added to academic curriculum.`);
+          setTimeout(() => setToastMessage(null), 5000);
+        }}
+      />
     </div>
   );
 }
