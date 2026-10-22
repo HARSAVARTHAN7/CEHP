@@ -64,61 +64,105 @@ export function FacultyDashboard() {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="p-5 rounded-2xl bg-[#0a0f1d] border border-slate-800 shadow-xl hover:border-slate-700 transition-all">
-          <div className="flex items-center justify-between text-slate-300 text-sm font-semibold">
-            <span>Allocated Courses</span>
-            <div className="p-2 rounded-lg bg-indigo-950/80 border border-indigo-800/60 text-indigo-400">
-              <BookOpen className="w-5 h-5" />
+        {/* Allocated Courses */}
+        <button
+          onClick={() => document.getElementById('assigned-courses')?.scrollIntoView({ behavior: 'smooth' })}
+          className="text-left p-5 rounded-2xl bg-[#0a0f1d] border border-slate-800 shadow-xl hover:border-indigo-500/50 hover:bg-[#0e162a] transition-all group cursor-pointer hover:-translate-y-0.5 active:scale-[0.99] flex flex-col justify-between"
+          title="Click to view assigned course catalog"
+        >
+          <div>
+            <div className="flex items-center justify-between text-slate-300 text-sm font-semibold">
+              <span>Allocated Courses</span>
+              <div className="p-2 rounded-lg bg-indigo-950/80 border border-indigo-800/60 text-indigo-400 group-hover:scale-110 transition-transform">
+                <BookOpen className="w-5 h-5" />
+              </div>
+            </div>
+            <div className="mt-3">
+              <span className="text-3xl font-extrabold text-white">{subjects.length || 3}</span>
+              <span className="text-xs text-slate-400 block mt-0.5">Active academic subjects</span>
             </div>
           </div>
-          <div className="mt-3">
-            <span className="text-3xl font-extrabold text-white">{subjects.length || 3}</span>
-            <span className="text-xs text-slate-400 block mt-0.5">Active academic subjects</span>
+          <div className="mt-4 pt-2.5 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-indigo-400/90 font-semibold group-hover:text-indigo-300">
+            <span>View course catalog</span>
+            <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
           </div>
-        </div>
+        </button>
 
-        <div className="p-5 rounded-2xl bg-[#0a0f1d] border border-slate-800 shadow-xl hover:border-slate-700 transition-all">
-          <div className="flex items-center justify-between text-slate-300 text-sm font-semibold">
-            <span>Pending Evaluation</span>
-            <div className="p-2 rounded-lg bg-amber-950/80 border border-amber-800/60 text-amber-400">
-              <Clock className="w-5 h-5" />
+        {/* Pending Evaluation */}
+        <Link
+          to="/enter-marks"
+          className="text-left p-5 rounded-2xl bg-[#0a0f1d] border border-slate-800 shadow-xl hover:border-amber-500/50 hover:bg-[#0e162a] transition-all group cursor-pointer hover:-translate-y-0.5 active:scale-[0.99] flex flex-col justify-between"
+          title="Click to enter marks for pending student rosters"
+        >
+          <div>
+            <div className="flex items-center justify-between text-slate-300 text-sm font-semibold">
+              <span>Pending Evaluation</span>
+              <div className="p-2 rounded-lg bg-amber-950/80 border border-amber-800/60 text-amber-400 group-hover:scale-110 transition-transform">
+                <Clock className="w-5 h-5" />
+              </div>
+            </div>
+            <div className="mt-3">
+              <span className="text-3xl font-extrabold text-amber-400">{draftResults.length || 5}</span>
+              <span className="text-xs text-slate-400 block mt-0.5">Draft marks awaiting submission</span>
             </div>
           </div>
-          <div className="mt-3">
-            <span className="text-3xl font-extrabold text-amber-400">{draftResults.length || 5}</span>
-            <span className="text-xs text-slate-400 block mt-0.5">Draft marks awaiting submission</span>
+          <div className="mt-4 pt-2.5 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-amber-400/90 font-semibold group-hover:text-amber-300">
+            <span>Enter / edit marks</span>
+            <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
           </div>
-        </div>
+        </Link>
 
-        <div className="p-5 rounded-2xl bg-[#0a0f1d] border border-slate-800 shadow-xl hover:border-slate-700 transition-all">
-          <div className="flex items-center justify-between text-slate-300 text-sm font-semibold">
-            <span>Under HOD Review</span>
-            <div className="p-2 rounded-lg bg-blue-950/80 border border-blue-800/60 text-blue-400">
-              <Users className="w-5 h-5" />
+        {/* Under HOD Review */}
+        <Link
+          to="/enter-marks"
+          className="text-left p-5 rounded-2xl bg-[#0a0f1d] border border-slate-800 shadow-xl hover:border-blue-500/50 hover:bg-[#0e162a] transition-all group cursor-pointer hover:-translate-y-0.5 active:scale-[0.99] flex flex-col justify-between"
+          title="Click to track submissions under department review"
+        >
+          <div>
+            <div className="flex items-center justify-between text-slate-300 text-sm font-semibold">
+              <span>Under HOD Review</span>
+              <div className="p-2 rounded-lg bg-blue-950/80 border border-blue-800/60 text-blue-400 group-hover:scale-110 transition-transform">
+                <Users className="w-5 h-5" />
+              </div>
+            </div>
+            <div className="mt-3">
+              <span className="text-3xl font-extrabold text-blue-400">{submittedResults.length || 0}</span>
+              <span className="text-xs text-slate-400 block mt-0.5">Awaiting HOD approval</span>
             </div>
           </div>
-          <div className="mt-3">
-            <span className="text-3xl font-extrabold text-blue-400">{submittedResults.length || 0}</span>
-            <span className="text-xs text-slate-400 block mt-0.5">Awaiting HOD approval</span>
+          <div className="mt-4 pt-2.5 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-blue-400/90 font-semibold group-hover:text-blue-300">
+            <span>Track moderation review</span>
+            <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
           </div>
-        </div>
+        </Link>
 
-        <div className="p-5 rounded-2xl bg-[#0a0f1d] border border-slate-800 shadow-xl hover:border-slate-700 transition-all">
-          <div className="flex items-center justify-between text-slate-300 text-sm font-semibold">
-            <span>Published Records</span>
-            <div className="p-2 rounded-lg bg-emerald-950/80 border border-emerald-800/60 text-emerald-400">
-              <CheckCircle2 className="w-5 h-5" />
+        {/* Published Records */}
+        <Link
+          to="/subject-performance"
+          className="text-left p-5 rounded-2xl bg-[#0a0f1d] border border-slate-800 shadow-xl hover:border-emerald-500/50 hover:bg-[#0e162a] transition-all group cursor-pointer hover:-translate-y-0.5 active:scale-[0.99] flex flex-col justify-between"
+          title="Click to view subject performance analytics"
+        >
+          <div>
+            <div className="flex items-center justify-between text-slate-300 text-sm font-semibold">
+              <span>Published Records</span>
+              <div className="p-2 rounded-lg bg-emerald-950/80 border border-emerald-800/60 text-emerald-400 group-hover:scale-110 transition-transform">
+                <CheckCircle2 className="w-5 h-5" />
+              </div>
+            </div>
+            <div className="mt-3">
+              <span className="text-3xl font-extrabold text-emerald-400">{approvedResults.length || 15}</span>
+              <span className="text-xs text-slate-400 block mt-0.5">Approved & official</span>
             </div>
           </div>
-          <div className="mt-3">
-            <span className="text-3xl font-extrabold text-emerald-400">{approvedResults.length || 15}</span>
-            <span className="text-xs text-slate-400 block mt-0.5">Approved & official</span>
+          <div className="mt-4 pt-2.5 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-emerald-400/90 font-semibold group-hover:text-emerald-300">
+            <span>View performance report</span>
+            <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
           </div>
-        </div>
+        </Link>
       </div>
 
       {/* Courses Grid */}
-      <div className="bg-[#0a0f1d] rounded-2xl border border-slate-800 overflow-hidden shadow-2xl">
+      <div id="assigned-courses" className="bg-[#0a0f1d] rounded-2xl border border-slate-800 overflow-hidden shadow-2xl">
         <div className="p-5 border-b border-slate-800 flex items-center justify-between bg-[#080d19]">
           <div>
             <h2 className="text-lg font-bold text-white">Your Assigned Courses</h2>

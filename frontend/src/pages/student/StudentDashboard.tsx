@@ -11,7 +11,7 @@ import { cn, gradeColor } from '../../lib/utils';
 import { Link } from 'react-router-dom';
 
 function StatCard({
-  title, value, subtitle, icon: Icon, color = 'indigo', trend
+  title, value, subtitle, icon: Icon, color = 'indigo', trend, to
 }: {
   title: string;
   value: string | number;
@@ -19,6 +19,7 @@ function StatCard({
   icon: React.ComponentType<{ className?: string }>;
   color?: 'indigo' | 'green' | 'amber' | 'red';
   trend?: 'up' | 'down';
+  to?: string;
 }) {
   const colors = {
     indigo: 'bg-indigo-950/80 text-indigo-400 border-indigo-800/60',
@@ -27,25 +28,45 @@ function StatCard({
     red: 'bg-rose-950/80 text-rose-400 border-rose-800/60',
   };
 
-  return (
-    <div className="bg-[#0a0f1d] rounded-2xl border border-slate-800 p-5 shadow-xl hover:border-slate-700 transition-all">
-      <div className="flex items-start justify-between">
-        <div>
-          <p className="text-xs uppercase font-semibold text-slate-400 tracking-wider">{title}</p>
-          <p className="text-3xl font-extrabold text-white mt-2 tracking-tight">{value}</p>
-          {subtitle && <p className="text-xs text-slate-400 mt-1 font-medium">{subtitle}</p>}
+  const cardContent = (
+    <div className={cn(
+      'bg-[#0a0f1d] rounded-2xl border border-slate-800 p-5 shadow-xl transition-all h-full flex flex-col justify-between',
+      to && 'hover:border-indigo-500/50 hover:bg-[#0e162a] hover:-translate-y-0.5 active:scale-[0.99] group cursor-pointer'
+    )}>
+      <div>
+        <div className="flex items-start justify-between">
+          <div>
+            <p className="text-xs uppercase font-semibold text-slate-400 tracking-wider">{title}</p>
+            <p className="text-3xl font-extrabold text-white mt-2 tracking-tight">{value}</p>
+            {subtitle && <p className="text-xs text-slate-400 mt-1 font-medium">{subtitle}</p>}
+          </div>
+          <div className={cn('p-3 rounded-xl border transition-transform', colors[color], to && 'group-hover:scale-110')}>
+            <Icon className="w-5 h-5" />
+          </div>
         </div>
-        <div className={cn('p-3 rounded-xl border', colors[color])}>
-          <Icon className="w-5 h-5" />
-        </div>
+        {trend && (
+          <div className={cn('flex items-center gap-1.5 mt-3 text-xs font-semibold', trend === 'up' ? 'text-emerald-400' : 'text-rose-400')}>
+            {trend === 'up' ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
+            {trend === 'up' ? 'Improving trajectory' : 'Needs attention'}
+          </div>
+        )}
       </div>
-      {trend && (
-        <div className={cn('flex items-center gap-1.5 mt-3 text-xs font-semibold', trend === 'up' ? 'text-emerald-400' : 'text-rose-400')}>
-          {trend === 'up' ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
-          {trend === 'up' ? 'Improving trajectory' : 'Needs attention'}
+
+      {to && (
+        <div className="mt-4 pt-2.5 border-t border-slate-800/80 flex items-center justify-between text-[11px] font-semibold text-indigo-400/90 group-hover:text-indigo-300">
+          <span>View records</span>
+          <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
         </div>
       )}
     </div>
+  );
+
+  return to ? (
+    <Link to={to} className="block h-full">
+      {cardContent}
+    </Link>
+  ) : (
+    cardContent
   );
 }
 
@@ -124,6 +145,7 @@ export default function StudentDashboard() {
           subtitle="Cumulative Grade Point Average"
           icon={Award}
           color="indigo"
+          to="/my-results"
         />
         <StatCard
           title="Latest SGPA"
@@ -132,6 +154,7 @@ export default function StudentDashboard() {
           icon={TrendingUp}
           color="green"
           trend={performanceTrend}
+          to="/my-results"
         />
         <StatCard
           title="Subjects Passed"
@@ -139,6 +162,7 @@ export default function StudentDashboard() {
           subtitle="Total cleared courses"
           icon={BookOpen}
           color="green"
+          to="/my-results"
         />
         <StatCard
           title="Active Arrears"
@@ -146,6 +170,7 @@ export default function StudentDashboard() {
           subtitle={analytics.activeArrearsCount > 0 ? 'Requires supplementary' : 'Clear academic standing'}
           icon={AlertTriangle}
           color={analytics.activeArrearsCount > 0 ? 'amber' : 'green'}
+          to="/arrears"
         />
       </div>
 

@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import {
   FileCheck2, CheckCircle2, XCircle, Clock, AlertCircle,
   Search, Filter, ChevronRight, Eye, ShieldAlert, Award, Send,
-  BookPlus
+  BookPlus, ArrowRight
 } from 'lucide-react';
 import { academicApi, resultApi } from '../../services/api';
 import { cn, formatDate } from '../../lib/utils';
@@ -104,61 +104,108 @@ export function ExamOfficerDashboard() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="p-5 rounded-2xl bg-[#0a0f1d] border border-slate-800 shadow-xl hover:border-slate-700 transition-all">
-          <div className="flex items-center justify-between text-slate-300 text-sm font-semibold">
-            <span>Pending Review</span>
-            <div className="p-2 rounded-lg bg-amber-950/80 border border-amber-800/60 text-amber-400">
-              <Clock className="w-5 h-5" />
+        {/* Card 1: Pending Review */}
+        <button
+          onClick={() => {
+            setActiveTab('pending');
+            document.getElementById('moderation-queue')?.scrollIntoView({ behavior: 'smooth' });
+          }}
+          className="text-left p-5 rounded-2xl bg-[#0a0f1d] border border-slate-800 shadow-xl hover:border-amber-500/50 hover:bg-[#0e162a] transition-all group cursor-pointer hover:-translate-y-0.5 active:scale-[0.99] flex flex-col justify-between"
+          title="Click to review pending moderation queue"
+        >
+          <div>
+            <div className="flex items-center justify-between text-slate-300 text-sm font-semibold">
+              <span>Pending Review</span>
+              <div className="p-2 rounded-lg bg-amber-950/80 border border-amber-800/60 text-amber-400 group-hover:scale-110 transition-transform">
+                <Clock className="w-5 h-5" />
+              </div>
+            </div>
+            <div className="mt-2 flex items-baseline gap-2">
+              <span className="text-3xl font-extrabold text-amber-400">{pendingSubmissions.length}</span>
+              <span className="text-xs text-slate-400 font-medium">awaiting signoff</span>
             </div>
           </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold text-amber-400">{pendingSubmissions.length}</span>
-            <span className="text-xs text-slate-400 font-medium">awaiting signoff</span>
+          <div className="mt-4 pt-2.5 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-amber-400/90 font-semibold group-hover:text-amber-300">
+            <span>Review moderation queue</span>
+            <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
           </div>
-        </div>
+        </button>
 
-        <div className="p-5 rounded-2xl bg-[#0a0f1d] border border-slate-800 shadow-xl hover:border-slate-700 transition-all">
-          <div className="flex items-center justify-between text-slate-300 text-sm font-semibold">
-            <span>Approved / Ready</span>
-            <div className="p-2 rounded-lg bg-blue-950/80 border border-blue-800/60 text-blue-400">
-              <CheckCircle2 className="w-5 h-5" />
+        {/* Card 2: Approved / Ready */}
+        <Link
+          to="/exam-officer/publish"
+          className="text-left p-5 rounded-2xl bg-[#0a0f1d] border border-slate-800 shadow-xl hover:border-blue-500/50 hover:bg-[#0e162a] transition-all group cursor-pointer hover:-translate-y-0.5 active:scale-[0.99] flex flex-col justify-between"
+          title="Click to open Result Publication Portal"
+        >
+          <div>
+            <div className="flex items-center justify-between text-slate-300 text-sm font-semibold">
+              <span>Approved / Ready</span>
+              <div className="p-2 rounded-lg bg-blue-950/80 border border-blue-800/60 text-blue-400 group-hover:scale-110 transition-transform">
+                <CheckCircle2 className="w-5 h-5" />
+              </div>
+            </div>
+            <div className="mt-2 flex items-baseline gap-2">
+              <span className="text-3xl font-extrabold text-blue-400">{approvedList.length}</span>
+              <span className="text-xs text-slate-400 font-medium">ready to publish</span>
             </div>
           </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold text-blue-400">{approvedList.length}</span>
-            <span className="text-xs text-slate-400 font-medium">ready to publish</span>
+          <div className="mt-4 pt-2.5 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-blue-400/90 font-semibold group-hover:text-blue-300">
+            <span>Go to publish portal</span>
+            <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
           </div>
-        </div>
+        </Link>
 
-        <div className="p-5 rounded-2xl bg-[#0a0f1d] border border-slate-800 shadow-xl hover:border-slate-700 transition-all">
-          <div className="flex items-center justify-between text-slate-300 text-sm font-semibold">
-            <span>Officially Published</span>
-            <div className="p-2 rounded-lg bg-emerald-950/80 border border-emerald-800/60 text-emerald-400">
-              <Award className="w-5 h-5" />
+        {/* Card 3: Officially Published */}
+        <Link
+          to="/results"
+          className="text-left p-5 rounded-2xl bg-[#0a0f1d] border border-slate-800 shadow-xl hover:border-emerald-500/50 hover:bg-[#0e162a] transition-all group cursor-pointer hover:-translate-y-0.5 active:scale-[0.99] flex flex-col justify-between"
+          title="Click to view published examination results"
+        >
+          <div>
+            <div className="flex items-center justify-between text-slate-300 text-sm font-semibold">
+              <span>Officially Published</span>
+              <div className="p-2 rounded-lg bg-emerald-950/80 border border-emerald-800/60 text-emerald-400 group-hover:scale-110 transition-transform">
+                <Award className="w-5 h-5" />
+              </div>
+            </div>
+            <div className="mt-2 flex items-baseline gap-2">
+              <span className="text-3xl font-extrabold text-emerald-400">{publishedList.length}</span>
+              <span className="text-xs text-slate-400 font-medium">live in student portal</span>
             </div>
           </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold text-emerald-400">{publishedList.length}</span>
-            <span className="text-xs text-slate-400 font-medium">live in student portal</span>
+          <div className="mt-4 pt-2.5 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-emerald-400/90 font-semibold group-hover:text-emerald-300">
+            <span>View published results</span>
+            <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
           </div>
-        </div>
+        </Link>
 
-        <div className="p-5 rounded-2xl bg-[#0a0f1d] border border-slate-800 shadow-xl hover:border-slate-700 transition-all">
-          <div className="flex items-center justify-between text-slate-300 text-sm font-semibold">
-            <span>Active Exam Cycles</span>
-            <div className="p-2 rounded-lg bg-indigo-950/80 border border-indigo-800/60 text-indigo-400">
-              <FileCheck2 className="w-5 h-5" />
+        {/* Card 4: Active Exam Cycles */}
+        <Link
+          to="/semesters"
+          className="text-left p-5 rounded-2xl bg-[#0a0f1d] border border-slate-800 shadow-xl hover:border-indigo-500/50 hover:bg-[#0e162a] transition-all group cursor-pointer hover:-translate-y-0.5 active:scale-[0.99] flex flex-col justify-between"
+          title="Click to view academic semesters and terms"
+        >
+          <div>
+            <div className="flex items-center justify-between text-slate-300 text-sm font-semibold">
+              <span>Active Exam Cycles</span>
+              <div className="p-2 rounded-lg bg-indigo-950/80 border border-indigo-800/60 text-indigo-400 group-hover:scale-110 transition-transform">
+                <FileCheck2 className="w-5 h-5" />
+              </div>
+            </div>
+            <div className="mt-2 flex items-baseline gap-2">
+              <span className="text-3xl font-extrabold text-indigo-400">{examinations.length || 2}</span>
+              <span className="text-xs text-slate-400 font-medium">cycles ongoing</span>
             </div>
           </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold text-indigo-400">{examinations.length || 2}</span>
-            <span className="text-xs text-slate-400 font-medium">cycles ongoing</span>
+          <div className="mt-4 pt-2.5 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-indigo-400/90 font-semibold group-hover:text-indigo-300">
+            <span>Manage academic terms</span>
+            <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
           </div>
-        </div>
+        </Link>
       </div>
 
       {/* Tabs & Controls */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#0a0f1d] p-3 rounded-xl border border-slate-800 shadow-md">
+      <div id="moderation-queue" className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#0a0f1d] p-3 rounded-xl border border-slate-800 shadow-md">
         <div className="flex items-center gap-2">
           <button
             onClick={() => setActiveTab('pending')}

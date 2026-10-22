@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import {
   Users, Building2, BookOpen, GraduationCap, ShieldCheck,
-  Activity, ArrowUpRight, CheckCircle2, AlertCircle, Database
+  Activity, ArrowUpRight, CheckCircle2, AlertCircle, Database, ArrowRight
 } from 'lucide-react';
 import { userApi, academicApi } from '../../services/api';
 
@@ -72,57 +72,109 @@ export function AdminDashboard() {
 
       {/* Metric Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="p-5 rounded-2xl bg-[#0a0f1d] border border-slate-800 shadow-xl">
-          <div className="flex items-center justify-between text-slate-300 text-sm font-semibold">
-            <span>Enrolled Students</span>
-            <GraduationCap className="w-5 h-5 text-indigo-400" />
+        {/* Enrolled Students */}
+        <Link
+          to="/students"
+          className="p-5 rounded-2xl bg-[#0a0f1d] border border-slate-800 shadow-xl hover:border-indigo-500/50 hover:bg-[#0e162a] transition-all group cursor-pointer hover:-translate-y-0.5 active:scale-[0.99] flex flex-col justify-between"
+          title="Click to view enrolled student directory"
+        >
+          <div>
+            <div className="flex items-center justify-between text-slate-300 text-sm font-semibold">
+              <span>Enrolled Students</span>
+              <div className="p-2 rounded-lg bg-indigo-950/80 border border-indigo-800/60 text-indigo-400 group-hover:scale-110 transition-transform">
+                <GraduationCap className="w-5 h-5" />
+              </div>
+            </div>
+            <div className="mt-3 flex items-baseline gap-2">
+              <span className="text-3xl font-extrabold text-white">
+                {statsData?.studentCount || 18}
+              </span>
+              <span className="text-xs text-slate-400 font-medium">active profiles</span>
+            </div>
           </div>
-          <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold text-white">
-              {statsData?.studentCount || 18}
-            </span>
-            <span className="text-xs text-slate-400 font-medium">active profiles</span>
+          <div className="mt-4 pt-2.5 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-indigo-400/90 font-semibold group-hover:text-indigo-300">
+            <span>Manage students</span>
+            <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
           </div>
-        </div>
+        </Link>
 
-        <div className="p-5 rounded-2xl bg-[#0a0f1d] border border-slate-800 shadow-xl">
-          <div className="flex items-center justify-between text-slate-300 text-sm font-semibold">
-            <span>Faculty Members</span>
-            <Users className="w-5 h-5 text-blue-400" />
+        {/* Faculty Members */}
+        <Link
+          to="/faculty"
+          className="p-5 rounded-2xl bg-[#0a0f1d] border border-slate-800 shadow-xl hover:border-blue-500/50 hover:bg-[#0e162a] transition-all group cursor-pointer hover:-translate-y-0.5 active:scale-[0.99] flex flex-col justify-between"
+          title="Click to view faculty directory and assignments"
+        >
+          <div>
+            <div className="flex items-center justify-between text-slate-300 text-sm font-semibold">
+              <span>Faculty Members</span>
+              <div className="p-2 rounded-lg bg-blue-950/80 border border-blue-800/60 text-blue-400 group-hover:scale-110 transition-transform">
+                <Users className="w-5 h-5" />
+              </div>
+            </div>
+            <div className="mt-3 flex items-baseline gap-2">
+              <span className="text-3xl font-extrabold text-blue-400">
+                {statsData?.facultyCount || 4}
+              </span>
+              <span className="text-xs text-slate-400 font-medium">professors</span>
+            </div>
           </div>
-          <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold text-blue-400">
-              {statsData?.facultyCount || 4}
-            </span>
-            <span className="text-xs text-slate-400 font-medium">professors</span>
+          <div className="mt-4 pt-2.5 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-blue-400/90 font-semibold group-hover:text-blue-300">
+            <span>Manage faculty</span>
+            <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
           </div>
-        </div>
+        </Link>
 
-        <div className="p-5 rounded-2xl bg-[#0a0f1d] border border-slate-800 shadow-xl">
-          <div className="flex items-center justify-between text-slate-300 text-sm font-semibold">
-            <span>Academic Departments</span>
-            <Building2 className="w-5 h-5 text-purple-400" />
+        {/* Academic Departments */}
+        <Link
+          to="/departments"
+          className="p-5 rounded-2xl bg-[#0a0f1d] border border-slate-800 shadow-xl hover:border-purple-500/50 hover:bg-[#0e162a] transition-all group cursor-pointer hover:-translate-y-0.5 active:scale-[0.99] flex flex-col justify-between"
+          title="Click to manage academic departments and structures"
+        >
+          <div>
+            <div className="flex items-center justify-between text-slate-300 text-sm font-semibold">
+              <span>Academic Departments</span>
+              <div className="p-2 rounded-lg bg-purple-950/80 border border-purple-800/60 text-purple-400 group-hover:scale-110 transition-transform">
+                <Building2 className="w-5 h-5" />
+              </div>
+            </div>
+            <div className="mt-3 flex items-baseline gap-2">
+              <span className="text-3xl font-extrabold text-purple-400">
+                {depts.length || 3}
+              </span>
+              <span className="text-xs text-slate-400 font-medium">configured</span>
+            </div>
           </div>
-          <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold text-purple-400">
-              {depts.length || 3}
-            </span>
-            <span className="text-xs text-slate-400 font-medium">configured</span>
+          <div className="mt-4 pt-2.5 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-purple-400/90 font-semibold group-hover:text-purple-300">
+            <span>Manage departments</span>
+            <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
           </div>
-        </div>
+        </Link>
 
-        <div className="p-5 rounded-2xl bg-[#0a0f1d] border border-slate-800 shadow-xl">
-          <div className="flex items-center justify-between text-slate-300 text-sm font-semibold">
-            <span>Course Catalog</span>
-            <BookOpen className="w-5 h-5 text-emerald-400" />
+        {/* Course Catalog */}
+        <Link
+          to="/subjects"
+          className="p-5 rounded-2xl bg-[#0a0f1d] border border-slate-800 shadow-xl hover:border-emerald-500/50 hover:bg-[#0e162a] transition-all group cursor-pointer hover:-translate-y-0.5 active:scale-[0.99] flex flex-col justify-between"
+          title="Click to view and configure course catalog"
+        >
+          <div>
+            <div className="flex items-center justify-between text-slate-300 text-sm font-semibold">
+              <span>Course Catalog</span>
+              <div className="p-2 rounded-lg bg-emerald-950/80 border border-emerald-800/60 text-emerald-400 group-hover:scale-110 transition-transform">
+                <BookOpen className="w-5 h-5" />
+              </div>
+            </div>
+            <div className="mt-3 flex items-baseline gap-2">
+              <span className="text-3xl font-extrabold text-emerald-400">
+                {subjects.length || 8}
+              </span>
+              <span className="text-xs text-slate-400 font-medium">curriculum subjects</span>
+            </div>
           </div>
-          <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold text-emerald-400">
-              {subjects.length || 8}
-            </span>
-            <span className="text-xs text-slate-400 font-medium">curriculum subjects</span>
+          <div className="mt-4 pt-2.5 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-emerald-400/90 font-semibold group-hover:text-emerald-300">
+            <span>Manage courses</span>
+            <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
           </div>
-        </div>
+        </Link>
       </div>
 
       {/* Quick Action Sections */}
