@@ -7,18 +7,39 @@ const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
-// Response interceptor: handle 401 → redirect to login
+// Request interceptor: attach token from localStorage
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('cehp_token');
+  if (token && config.headers) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+// Response interceptor: handle 401 refresh gracefully without aggressive page redirects
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
-    if (error.response?.status === 401) {
-      // Try to refresh token
+    const originalRequest = error.config;
+    if (error.response?.status === 401 && !originalRequest?._retry) {
+      originalRequest._retry = true;
       try {
-        await axios.post('/api/v1/auth/refresh', {}, { withCredentials: true });
-        return api.request(error.config);
+        const token = localStorage.getItem('cehp_token');
+        const res = await axios.post('/api/v1/auth/refresh', {}, {
+          withCredentials: true,
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        const newToken = res.data?.accessToken;
+        if (newToken) {
+          localStorage.setItem('cehp_token', newToken);
+          if (originalRequest.headers) {
+            originalRequest.headers.Authorization = `Bearer ${newToken}`;
+          }
+          return api.request(originalRequest);
+        }
       } catch {
-        // Only redirect if not already on login
-        if (window.location.pathname !== '/login') {
+        // Do not force a hard window reload if there is a local session; let AuthContext manage auth lifecycle
+        if (!localStorage.getItem('cehp_user') && window.location.pathname !== '/login') {
           window.location.href = '/login';
         }
       }

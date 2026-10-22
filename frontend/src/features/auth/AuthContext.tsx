@@ -16,15 +16,41 @@ const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
-  const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+
+  const [user, setUser] = useState<User | null>(() => {
+    try {
+      const saved = localStorage.getItem('cehp_user');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  const [isLoading, setIsLoading] = useState(() => {
+    try {
+      return !localStorage.getItem('cehp_user');
+    } catch {
+      return true;
+    }
+  });
 
   const refetchUser = useCallback(async () => {
     try {
       const res = await authApi.getMe();
-      setUser(res.data.data);
+      if (res.data?.data) {
+        setUser(res.data.data);
+        localStorage.setItem('cehp_user', JSON.stringify(res.data.data));
+      }
     } catch {
-      setUser(null);
+      // If server verification fails, only clear state if there was no stored user
+      try {
+        const saved = localStorage.getItem('cehp_user');
+        if (!saved) {
+          setUser(null);
+        }
+      } catch {
+        setUser(null);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -37,7 +63,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (email: string, password: string) => {
     try {
       const res = await authApi.login(email, password);
-      setUser(res.data.data);
+      const userData = res.data?.data || res.data;
+      setUser(userData);
+      try {
+        localStorage.setItem('cehp_user', JSON.stringify(userData));
+        if (res.data?.accessToken) {
+          localStorage.setItem('cehp_token', res.data.accessToken);
+        }
+      } catch (e) {
+        console.error('Failed to save user session:', e);
+      }
     } catch (err: any) {
       const lower = email.toLowerCase().trim();
       const demoUsers: Record<string, User> = {
@@ -85,7 +120,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       };
 
       if (password === 'Demo@1234' && demoUsers[lower]) {
-        setUser(demoUsers[lower]);
+        const demoUser = demoUsers[lower];
+        setUser(demoUser);
+        try {
+          localStorage.setItem('cehp_user', JSON.stringify(demoUser));
+          localStorage.setItem('cehp_token', `demo_token_${demoUser.role.toLowerCase()}`);
+        } catch (e) {
+          console.error('Failed to save demo session:', e);
+        }
         return;
       }
 
@@ -99,6 +141,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {
       // Ignore network errors on logout
     }
+    try {
+      localStorage.removeItem('cehp_user');
+      localStorage.removeItem('cehp_token');
+    } catch {}
     setUser(null);
     navigate('/login', { replace: true });
   };
