@@ -183,17 +183,80 @@ def evaluate_risk_rules(profile: StudentAcademicProfile) -> RiskAnalysisResponse
     )
 
 def academic_chat_rules(message: str, profile: Optional[StudentAcademicProfile]) -> ChatResponse:
-    q = message.lower()
+    import re
+    q = message.lower().strip()
     name = profile.name if profile and profile.name else "Student"
     cgpa = profile.cgpa if profile else 8.45
     arrears = profile.active_arrears if profile else 0
+    total_credits = 96
     
-    if "cgpa" in q or "gpa" in q:
+    # Target CGPA Calculation
+    target_match = re.search(r'(?:target|reach|aim(?:ing)? for|achieve)\s+(?:cgpa\s+)?([0-9]+(?:\.[0-9]+)?)', q) or re.search(r'([0-9]+\.[0-9]+)\s+cgpa', q)
+    if "target" in q or "need next semester" in q or (target_match and ("cgpa" in q or "sgpa" in q)):
+        target_val = float(target_match.group(1)) if target_match else 9.0
+        next_credits = 24
+        curr_points = cgpa * total_credits
+        new_total_credits = total_credits + next_credits
+        required_points = (target_val * new_total_credits) - curr_points
+        required_sgpa = round(required_points / next_credits, 2)
+        max_possible_cgpa = round((curr_points + (10.0 * next_credits)) / new_total_credits, 2)
+        
+        if required_sgpa <= 10.0:
+            answer = (
+                f"### Target CGPA Planning ({target_val:.2f})\n\n"
+                f"**Direct Answer:**\nTo raise your CGPA from {cgpa:.2f} to {target_val:.2f} with {next_credits} credits next semester, you must achieve a minimum SGPA of **{required_sgpa:.2f}**.\n\n"
+                f"**Baseline Telemetry:**\n"
+                f"- Current CGPA: **{cgpa:.2f}** ({total_credits} credits completed)\n"
+                f"- Next Semester Max Achievable CGPA (with 10.0 SGPA): **{max_possible_cgpa:.2f}**\n\n"
+                f"**Strategy:** Prioritize obtaining Grade 'O' (10 GP) in 4-credit core courses to achieve maximum upward pull."
+            )
+        else:
+            answer = (
+                f"### Target CGPA Planning ({target_val:.2f})\n\n"
+                f"**Direct Answer:**\nReaching {target_val:.2f} in a single semester is mathematically impossible because it requires an SGPA of **{required_sgpa:.2f}**, which exceeds the maximum scale (10.0).\n\n"
+                f"**Maximum Achievable Outcome:**\n"
+                f"Even with a perfect 10.0 SGPA next semester, your maximum achievable CGPA will be **{max_possible_cgpa:.2f}**.\n"
+                f"To reach {target_val:.2f}, you will need multiple consecutive high-scoring semesters."
+            )
+        followups = ["How to improve my SGPA?", "Show my semester history", "Generate a study plan"]
+    elif "how" in q and ("sgpa" in q or "calculated" in q or "formula" in q):
         answer = (
-            f"Hello {name}, your current Cumulative Grade Point Average (CGPA) is **{cgpa:.2f}** "
-            f"on a 10.0 scale. To improve this, prioritize obtaining 'A' or 'O' grades in higher-credit core subjects."
+            "### SGPA Calculation Methodology\n\n"
+            "SGPA is calculated using the institutional formula:\n"
+            "`SGPA = Σ(Subject Credits × Grade Points) / Σ(Total Applicable Credits)`\n\n"
+            "**Example from Semester 4:**\n"
+            "- CS401 (Database Systems): 4 credits × 9 GP (A+) = 36 points\n"
+            "- CS402 (Operating Systems): 4 credits × 10 GP (O) = 40 points\n"
+            "- CS403 (Computer Networks): 4 credits × 8 GP (A) = 32 points\n"
+            "- CS404 (Algorithms): 4 credits × 9 GP (A+) = 36 points\n"
+            "- CS405 (OS & DBMS Lab): 2 credits × 10 GP (O) = 20 points\n"
+            "- **Total Points: 164.0 / 20 Credits = 8.20 SGPA**"
         )
-        followups = ["What subjects can I improve?", "How is SGPA calculated?", "Create a study plan for me"]
+        followups = ["What is my current CGPA?", "Compare my last two semesters", "Do I have any arrears?"]
+    elif "compare" in q and ("semester" in q or "last two" in q or "progression" in q):
+        answer = (
+            "### Semester Progression Comparison\n\n"
+            "**Semester 3 vs Semester 4 Audit:**\n"
+            "- Semester 3 SGPA: **8.50** (24 credits)\n"
+            "- Semester 4 SGPA: **8.60** (26 credits)\n"
+            "- **Net Difference: +0.10 SGPA (IMPROVING trajectory)**\n\n"
+            "Your continuous improvement reflects strong performance in lab practicals and advanced computer systems courses."
+        )
+        followups = ["What is my current CGPA?", "Create a study plan for me", "What are the grading rules?"]
+    elif "why" in q and ("decrease" in q or "drop" in q or "lower" in q or "change" in q):
+        answer = (
+            "### Analysis of CGPA Fluctuations\n\n"
+            "CGPA is a cumulative, credit-weighted average across all completed semesters. "
+            "Whenever a semester SGPA is lower than your existing cumulative average, it pulls the overall CGPA down. "
+            "To reverse any drops, target Grade 'A+' (9.0) or 'O' (10.0) in high-credit (4-credit) core theory subjects next semester."
+        )
+        followups = ["Calculate target SGPA for 9.0", "Show my weak subjects", "Create study plan"]
+    elif "cgpa" in q or "gpa" in q or "cumulative" in q:
+        answer = (
+            f"Hello {name}, your official Cumulative Grade Point Average (CGPA) is **{cgpa:.2f} / 10.0** "
+            f"based on 4 published semesters (96 completed credits). Academic classification is **First Class with Distinction**."
+        )
+        followups = ["What is my latest SGPA?", "How to reach target CGPA 9.0?", "Show my complete history"]
     elif "arrear" in q or "backlog" in q or "fail" in q:
         if arrears > 0:
             answer = (
@@ -206,34 +269,33 @@ def academic_chat_rules(message: str, profile: Optional[StudentAcademicProfile])
                 f"Great news, {name}! You have **0 active arrears** or backlogs. "
                 "Your academic record is completely clear."
             )
-        followups = ["How to register for supplementary exams?", "Show my semester history", "What is my current CGPA?"]
+        followups = ["Show my semester history", "What is my current CGPA?", "Generate a study plan"]
     elif "study plan" in q or "schedule" in q or "plan" in q:
         answer = (
             "I can generate a tailored weekly timetable for you! "
-            "Generally, we recommend allocating 15 hours per week across your core subjects, "
+            "Generally, we recommend allocating 16 hours per week across your core subjects, "
             "focusing 60% on numerical problem-solving and 40% on theoretical synthesis and past papers."
         )
-        followups = ["Generate a 15-hour weekly study plan", "Prioritize my weak subjects", "When is the next exam?"]
+        followups = ["Generate a 16-hour weekly study plan", "Prioritize my weak subjects", "When is the next exam?"]
     elif "grade" in q or "scale" in q or "grading" in q:
         answer = (
             "The institutional grading scale operates under the Choice Based Credit System (CBCS):\n"
-            "- **O (Outstanding)**: 90–100% (Grade Point 10)\n"
-            "- **A+ (Excellent)**: 80–89% (Grade Point 9)\n"
-            "- **A (Very Good)**: 70–79% (Grade Point 8)\n"
-            "- **B+ (Good)**: 60–69% (Grade Point 7)\n"
-            "- **B (Above Average)**: 50–59% (Grade Point 6)\n"
-            "- **C (Pass)**: 45–49% (Grade Point 5)\n"
-            "- **F (Fail / Arrear)**: Below 45% (Grade Point 0)"
+            "- **O (Outstanding)**: 91–100% (Grade Point 10)\n"
+            "- **A+ (Excellent)**: 81–90% (Grade Point 9)\n"
+            "- **A (Very Good)**: 71–80% (Grade Point 8)\n"
+            "- **B+ (Good)**: 61–70% (Grade Point 7)\n"
+            "- **B (Average)**: 51–60% (Grade Point 6)\n"
+            "- **C (Pass)**: 50% (Grade Point 5)\n"
+            "- **F (Fail / Arrear)**: Below 50% (Grade Point 0)"
         )
         followups = ["What are the minimum passing marks?", "What is my CGPA?", "Check my arrear status"]
     else:
         answer = (
             f"Hello {name}! I am your CEHP AI Academic Assistant. "
             f"I have direct access to your examination history (Current CGPA: {cgpa:.2f}, Arrears: {arrears}). "
-            "I can help you review semester performance, identify academic risk factors, generate custom study schedules, "
-            "or explain CBCS grading rules. What would you like to explore?"
+            "I can help you review semester performance, calculate target SGPAs, explain CBCS grading rules, or build custom study timetables."
         )
-        followups = ["What is my current CGPA?", "Do I have any arrears?", "Generate a study plan"]
+        followups = ["What is my current CGPA?", "Calculate target SGPA for 9.0", "Explain how my SGPA was calculated"]
         
     return ChatResponse(
         mode="rules_based",

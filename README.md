@@ -95,12 +95,34 @@ All accounts use the password: `Demo@1234`
 
 ---
 
+### 4. Official PDF Transcripts & Export
+- Generates cryptographically verifiable, vectorized PDF transcripts using PDFKit.
+- Includes candidate metadata, semester course breakdowns, credit allocations, SGPA/CGPA, QR verification tokens, and Controller of Examinations signature blocks.
+- Accessible via student self-service (`GET /api/v1/students/me/transcript/pdf`) and examination administration portals.
+
+---
+
 ## 🧪 Testing & Validation
 
 ```bash
-# Run backend calculations test suite
+# Run all automated test suites
+npm run test
+
+# Run backend calculation engine, AI evaluation, and PDF transcript tests
 npm run test:backend
 
-# Run frontend UI helper test suite
+# Run frontend UI helper and role authorization guard tests
 npm run test:frontend
+
+# Validate production builds
+npm run build
 ```
+
+---
+
+## 🔒 Security Hardening & Authorization Controls
+- **Rate Limiting**: `express-rate-limit` active on authentication (`/api/v1/auth/login`) and AI inquiries (`/api/v1/ai/chat`) to thwart brute-force attacks and abuse.
+- **Route Authorization (`RoleGuard`)**: Strict frontend and backend permission verification ensuring students, faculty, and administrators remain strictly within their authorized records.
+- **Input Sanitization**: Zod validation schemas enforcing boundaries on examination marks, grades, and profile mutations.
+- **Prompt Injection Defense**: Deterministic grounded evaluation preventing LLM jailbreaks or sensitive credential leakage.
+

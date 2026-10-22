@@ -117,6 +117,7 @@ export const resultApi = {
   listResults: (params?: Record<string, any>) => api.get('/results', { params }),
   getMyHistory: () => api.get('/results/my-history'),
   getMyAnalytics: () => api.get('/results/my-analytics'),
+  downloadTranscriptPDF: () => api.get('/students/me/transcript/pdf', { responseType: 'blob' }),
   create: (data: Record<string, unknown>) => api.post('/results', data),
   update: (id: string, data: Record<string, unknown>) => api.patch(`/results/${id}`, data),
   submit: (id: string) => api.post(`/results/${id}/submit`),

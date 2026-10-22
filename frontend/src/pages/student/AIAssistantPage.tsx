@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Send, Bot, User, Loader2, BrainCircuit, Sparkles, Trash2 } from 'lucide-react';
+import { Send, Bot, User, Loader2, BrainCircuit, Sparkles, Trash2, Copy, Check } from 'lucide-react';
 import { aiApi } from '../../services/api';
 import { cn } from '../../lib/utils';
 import { ConfirmModal } from '../../components/ConfirmModal';
@@ -17,11 +17,12 @@ const INITIAL_MESSAGE: Message = {
 };
 
 const SUGGESTED_QUESTIONS = [
+  "How much SGPA do I need next semester to reach target CGPA 9.0?",
+  "Explain how my SGPA was calculated",
+  "Compare my last two semesters",
   "What is my current CGPA?",
-  "Which subjects have I failed?",
-  "How has my performance changed across semesters?",
-  "Which subjects should I prioritize?",
-  "How many arrears do I have?",
+  "Which subjects have I failed or have arrears in?",
+  "Explain why my CGPA decreased",
   "Create a study plan for my weak subjects",
 ];
 
@@ -30,6 +31,7 @@ export default function AIAssistantPage() {
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
 
   const { data: summaryRes } = useQuery({
     queryKey: ['performance-summary'],
@@ -184,12 +186,25 @@ export default function AIAssistantPage() {
                 )}
                 <div
                   className={cn(
-                    'max-w-[82%] rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-md',
+                    'max-w-[82%] rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-md group relative',
                     msg.role === 'user'
                       ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white rounded-tr-sm font-medium'
                       : 'bg-[#121a2d] text-slate-100 border border-slate-700/60 rounded-tl-sm'
                   )}
                 >
+                  {msg.role === 'assistant' && (
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(msg.content);
+                        setCopiedIdx(idx);
+                        setTimeout(() => setCopiedIdx(null), 2000);
+                      }}
+                      className="absolute top-2 right-2 p-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-400 hover:text-white opacity-0 group-hover:opacity-100 transition-opacity text-xs flex items-center gap-1"
+                      title="Copy response to clipboard"
+                    >
+                      {copiedIdx === idx ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                    </button>
+                  )}
                   {msg.content.split('\n').map((line, i) => (
                     <p key={i} className={i > 0 ? 'mt-1' : ''}>{line}</p>
                   ))}

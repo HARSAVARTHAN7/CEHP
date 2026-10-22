@@ -158,6 +158,28 @@ export function StudentHistoryPage() {
   const passedCount = parsedRecords.filter((r: any) => r.isPassed || r.resultStatus === 'PASS').length;
   const arrearCount = parsedRecords.filter((r: any) => (!r.isPassed && r.isPassed !== undefined) || r.resultStatus === 'FAIL').length;
 
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+
+  const handleDownloadPdf = async () => {
+    try {
+      setIsDownloadingPdf(true);
+      const res = await resultApi.downloadTranscriptPDF();
+      const blob = new Blob([res.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `Official_Transcript_${student?.registrationNumber || 'Student'}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch {
+      window.print();
+    } finally {
+      setIsDownloadingPdf(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Page Header */}
@@ -171,13 +193,21 @@ export function StudentHistoryPage() {
             Official chronological record of semesters, enrolled subjects, awarded grades, and academic standing.
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
           <button
-            onClick={() => window.print()}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm transition-all shadow-lg shadow-indigo-600/30 active:scale-95"
+            onClick={handleDownloadPdf}
+            disabled={isDownloadingPdf}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm transition-all shadow-lg shadow-indigo-600/30 active:scale-95 disabled:opacity-60 whitespace-nowrap"
           >
             <Download className="w-4 h-4" />
-            Export / Print Transcript
+            {isDownloadingPdf ? 'Generating PDF...' : 'Download Official PDF'}
+          </button>
+          <button
+            onClick={() => window.print()}
+            className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-sm transition-all border border-slate-700 active:scale-95 whitespace-nowrap"
+          >
+            <FileText className="w-4 h-4" />
+            Print / Export
           </button>
         </div>
       </div>

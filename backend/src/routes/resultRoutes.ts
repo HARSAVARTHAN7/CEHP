@@ -4,6 +4,7 @@ import {
   listResults, getMyHistory, getMyAnalytics,
   createResult, updateResult,
   submitResult, approveResult, publishResult, publishExaminationResults,
+  downloadTranscriptPDF,
 } from '../controllers/resultController';
 
 const router = Router();
@@ -12,9 +13,11 @@ router.use(authenticate);
 // Student self-service
 router.get('/students/me/history', authorize('STUDENT'), getMyHistory);
 router.get('/students/me/analytics', authorize('STUDENT'), getMyAnalytics);
+router.get('/students/me/transcript/pdf', authorize('STUDENT'), downloadTranscriptPDF);
 
-// Results CRUD
+// Results CRUD & Transcripts
 router.get('/results', listResults);
+router.get('/results/transcript/:studentId/pdf', authorize('ADMIN', 'EXAM_OFFICER'), downloadTranscriptPDF);
 router.post('/results', authorize('FACULTY', 'EXAM_OFFICER', 'ADMIN'), createResult);
 router.patch('/results/:id', authorize('FACULTY', 'EXAM_OFFICER', 'ADMIN'), updateResult);
 

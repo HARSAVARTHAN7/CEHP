@@ -237,3 +237,183 @@ export function getDefaultGradeThresholds(): IGradeThreshold[] {
     { minPercentage: 0, maxPercentage: 49, grade: 'F', gradePoint: 0, description: 'Fail' },
   ];
 }
+
+export interface TargetPlanningResult {
+  isAchievable: boolean;
+  requiredSGPA: number;
+  currentCGPA: number;
+  currentCredits: number;
+  targetCGPA: number;
+  nextSemesterCredits: number;
+  maxPossibleCGPA: number;
+  semestersNeededAtMax: number;
+  explanation: string;
+}
+
+/**
+ * Calculates the exact SGPA required next semester to achieve a target CGPA.
+ * Handles mathematical impossibility if required SGPA > 10.0 and calculates the maximum possible outcome.
+ */
+export function calculateTargetSGPA(
+  currentCGPA: number,
+  currentCredits: number,
+  targetCGPA: number,
+  nextSemesterCredits: number = 24,
+  maxGradePoint: number = 10.0
+): TargetPlanningResult {
+  if (currentCredits <= 0) {
+    const isAchievable = targetCGPA <= maxGradePoint && targetCGPA >= 0;
+    return {
+      isAchievable,
+      requiredSGPA: targetCGPA,
+      currentCGPA,
+      currentCredits: 0,
+      targetCGPA,
+      nextSemesterCredits,
+      maxPossibleCGPA: maxGradePoint,
+      semestersNeededAtMax: isAchievable ? 1 : 0,
+      explanation: isAchievable
+        ? `Since this is your first semester, simply achieve an SGPA of ${targetCGPA.toFixed(2)} to reach your target CGPA.`
+        : `Target CGPA of ${targetCGPA.toFixed(2)} exceeds the maximum possible grade point (${maxGradePoint.toFixed(2)}).`,
+    };
+  }
+
+  const currentPoints = currentCGPA * currentCredits;
+  const newTotalCredits = currentCredits + nextSemesterCredits;
+  const targetTotalPoints = targetCGPA * newTotalCredits;
+  const requiredPoints = targetTotalPoints - currentPoints;
+  const rawRequiredSGPA = requiredPoints / nextSemesterCredits;
+  const requiredSGPA = parseFloat(rawRequiredSGPA.toFixed(2));
+
+  const maxPointsPossible = currentPoints + maxGradePoint * nextSemesterCredits;
+  const maxPossibleCGPA = parseFloat((maxPointsPossible / newTotalCredits).toFixed(2));
+
+  if (requiredSGPA <= maxGradePoint && requiredSGPA >= 0) {
+    return {
+      isAchievable: true,
+      requiredSGPA,
+      currentCGPA,
+      currentCredits,
+      targetCGPA,
+      nextSemesterCredits,
+      maxPossibleCGPA,
+      semestersNeededAtMax: 1,
+      explanation: `To raise your CGPA from ${currentCGPA.toFixed(2)} to ${targetCGPA.toFixed(2)} with ${nextSemesterCredits} credits next semester, you must achieve a minimum SGPA of **${requiredSGPA.toFixed(2)}**.`,
+    };
+  }
+
+  // If impossible in 1 semester, calculate how many subsequent semesters at 10.0 would be needed
+  let remainingPointsNeeded = targetCGPA * currentCredits - currentPoints;
+  let semsNeeded = 0;
+  let simCredits = currentCredits;
+  let simPoints = currentPoints;
+
+  while (semsNeeded < 10) {
+    semsNeeded++;
+    simCredits += nextSemesterCredits;
+    simPoints += maxGradePoint * nextSemesterCredits;
+    if (simPoints / simCredits >= targetCGPA) {
+      break;
+    }
+  }
+
+  return {
+    isAchievable: false,
+    requiredSGPA,
+    currentCGPA,
+    currentCredits,
+    targetCGPA,
+    nextSemesterCredits,
+    maxPossibleCGPA,
+    semestersNeededAtMax: semsNeeded <= 8 ? semsNeeded : -1,
+    explanation:
+      `Reaching a CGPA of ${targetCGPA.toFixed(2)} in a single semester is mathematically impossible because it requires an SGPA of **${requiredSGPA.toFixed(2)}**, which exceeds the maximum scale (${maxGradePoint.toFixed(2)}).\n\n` +
+      `Even with a perfect ${maxGradePoint.toFixed(2)} SGPA next semester, your maximum achievable CGPA will be **${maxPossibleCGPA.toFixed(2)}**.\n` +
+      (semsNeeded <= 8
+        ? `To reach ${targetCGPA.toFixed(2)}, you will need approximately **${semsNeeded} consecutive semester(s)** with a perfect ${maxGradePoint.toFixed(2)} SGPA.`
+        : `Reaching ${targetCGPA.toFixed(2)} cannot be attained within the remaining undergraduate credit duration.`),
+  };
+}
+
+/**
+ * Explains how SGPA was calculated for a given semester step by step.
+ */
+export function explainSGPACalculation(results: IResultRecord[]): {
+  breakdown: { subjectCode: string; subjectName: string; credits: number; grade: string; gradePoint: number; weightedPoints: number }[];
+  totalCredits: number;
+  totalWeightedPoints: number;
+  sgpa: number;
+  formula: string;
+} {
+  const breakdown: { subjectCode: string; subjectName: string; credits: number; grade: string; gradePoint: number; weightedPoints: number }[] = [];
+  let totalCredits = 0;
+  let totalWeightedPoints = 0;
+
+  for (const r of results) {
+    const cred = r.credits || 0;
+    const gp = r.gradePoint || 0;
+    const wp = parseFloat((cred * gp).toFixed(2));
+    totalCredits += cred;
+    totalWeightedPoints += wp;
+
+    const code = (r.subjectId as any)?.code || (r as any).subjectCode || 'SUB';
+    const name = (r.subjectId as any)?.name || (r as any).subjectName || 'Course';
+
+    breakdown.push({
+      subjectCode: code,
+      subjectName: name,
+      credits: cred,
+      grade: r.grade,
+      gradePoint: gp,
+      weightedPoints: wp,
+    });
+  }
+
+  const sgpa = totalCredits > 0 ? parseFloat((totalWeightedPoints / totalCredits).toFixed(2)) : 0;
+
+  return {
+    breakdown,
+    totalCredits,
+    totalWeightedPoints: parseFloat(totalWeightedPoints.toFixed(2)),
+    sgpa,
+    formula: `SGPA = Σ(Credits × Grade Points) / Σ(Credits) = ${totalWeightedPoints.toFixed(2)} / ${totalCredits} = ${sgpa.toFixed(2)}`,
+  };
+}
+
+/**
+ * Compare performance between two semesters.
+ */
+export function compareSemesters(
+  semA: { semesterNumber: number; sgpa: number; credits: number; subjects?: { name: string; grade: string; gradePoint: number }[] },
+  semB: { semesterNumber: number; sgpa: number; credits: number; subjects?: { name: string; grade: string; gradePoint: number }[] }
+): {
+  earlierSem: number;
+  laterSem: number;
+  sgpaDifference: number;
+  trajectory: 'IMPROVED' | 'DECLINED' | 'STABLE';
+  summary: string;
+} {
+  const earlier = semA.semesterNumber < semB.semesterNumber ? semA : semB;
+  const later = semA.semesterNumber < semB.semesterNumber ? semB : semA;
+
+  const diff = parseFloat((later.sgpa - earlier.sgpa).toFixed(2));
+  const trajectory = diff > 0.05 ? 'IMPROVED' : diff < -0.05 ? 'DECLINED' : 'STABLE';
+
+  let summary = '';
+  if (trajectory === 'IMPROVED') {
+    summary = `Your performance increased by +${diff.toFixed(2)} SGPA from Semester ${earlier.semesterNumber} (${earlier.sgpa.toFixed(2)}) to Semester ${later.semesterNumber} (${later.sgpa.toFixed(2)}).`;
+  } else if (trajectory === 'DECLINED') {
+    summary = `Your performance dropped by ${diff.toFixed(2)} SGPA from Semester ${earlier.semesterNumber} (${earlier.sgpa.toFixed(2)}) to Semester ${later.semesterNumber} (${later.sgpa.toFixed(2)}).`;
+  } else {
+    summary = `Your performance remained steady across Semester ${earlier.semesterNumber} (${earlier.sgpa.toFixed(2)}) and Semester ${later.semesterNumber} (${later.sgpa.toFixed(2)}).`;
+  }
+
+  return {
+    earlierSem: earlier.semesterNumber,
+    laterSem: later.semesterNumber,
+    sgpaDifference: diff,
+    trajectory,
+    summary,
+  };
+}
+
