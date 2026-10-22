@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   GraduationCap, LayoutDashboard, BookOpen, BarChart3, BrainCircuit,
   FileText, Bell, Settings, Users, Building2, ChevronLeft, ChevronRight,
-  Menu, X, LogOut, User, ClipboardList, Upload, Shield,
+  Menu, X, LogOut, User, ClipboardList, Shield,
   TrendingUp, BookMarked, AlertTriangle,
 } from 'lucide-react';
 import { useAuth } from '../features/auth/AuthContext';
@@ -29,7 +29,6 @@ const navItems: NavItem[] = [
   // Faculty
   { label: 'My Subjects', path: '/my-subjects', icon: BookOpen, roles: ['FACULTY', 'HOD'] },
   { label: 'Enter Marks', path: '/enter-marks', icon: ClipboardList, roles: ['FACULTY'] },
-  { label: 'Import Marks', path: '/import-marks', icon: Upload, roles: ['FACULTY', 'EXAM_OFFICER'] },
   { label: 'Performance', path: '/subject-performance', icon: TrendingUp, roles: ['FACULTY', 'HOD'] },
   // Admin / Exam Officer
   { label: 'Students', path: '/students', icon: Users, roles: ['ADMIN', 'EXAM_OFFICER', 'HOD'] },

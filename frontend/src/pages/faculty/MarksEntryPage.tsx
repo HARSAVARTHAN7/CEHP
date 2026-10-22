@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   FileSpreadsheet, Upload, Download, Save, Send, AlertCircle,
@@ -20,7 +21,15 @@ interface StudentMarkRow {
 
 export function MarksEntryPage() {
   const queryClient = useQueryClient();
-  const [selectedSubject, setSelectedSubject] = useState<string>('');
+  const [searchParams] = useSearchParams();
+  const subjectParam = searchParams.get('subject') || '';
+  const [selectedSubject, setSelectedSubject] = useState<string>(subjectParam);
+
+  useEffect(() => {
+    if (subjectParam) {
+      setSelectedSubject(subjectParam);
+    }
+  }, [subjectParam]);
   const [selectedSemester, setSelectedSemester] = useState<string>('');
   const [selectedExam, setSelectedExam] = useState<string>('');
   const [searchFilter, setSearchFilter] = useState('');

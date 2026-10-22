@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
   Building2, BookOpen, Layers, PlusCircle, CheckCircle2,
@@ -8,7 +9,25 @@ import { academicApi } from '../../services/api';
 import { cn } from '../../lib/utils';
 
 export function AcademicManagementPage() {
-  const [activeTab, setActiveTab] = useState<'departments' | 'subjects' | 'semesters'>('subjects');
+  const location = useLocation();
+
+  const getInitialTab = (): 'departments' | 'subjects' | 'semesters' => {
+    if (location.pathname === '/departments') return 'departments';
+    if (location.pathname === '/semesters') return 'semesters';
+    return 'subjects';
+  };
+
+  const [activeTab, setActiveTab] = useState<'departments' | 'subjects' | 'semesters'>(getInitialTab);
+
+  useEffect(() => {
+    if (location.pathname === '/departments') {
+      setActiveTab('departments');
+    } else if (location.pathname === '/semesters') {
+      setActiveTab('semesters');
+    } else if (location.pathname === '/subjects') {
+      setActiveTab('subjects');
+    }
+  }, [location.pathname]);
 
   const { data: depts = [] } = useQuery({
     queryKey: ['departments'],

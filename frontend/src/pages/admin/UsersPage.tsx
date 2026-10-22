@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Users, Search, Filter, ShieldCheck, Mail, CheckCircle2,
@@ -19,7 +20,26 @@ const DEFAULT_USERS: User[] = [
 ];
 
 export function UsersPage() {
-  const [roleFilter, setRoleFilter] = useState<string>('ALL');
+  const location = useLocation();
+
+  const getInitialRole = () => {
+    if (location.pathname === '/students') return 'STUDENT';
+    if (location.pathname === '/faculty') return 'FACULTY';
+    return 'ALL';
+  };
+
+  const [roleFilter, setRoleFilter] = useState<string>(getInitialRole);
+
+  useEffect(() => {
+    if (location.pathname === '/students') {
+      setRoleFilter('STUDENT');
+    } else if (location.pathname === '/faculty') {
+      setRoleFilter('FACULTY');
+    } else if (location.pathname === '/users' || location.pathname === '/admin/users') {
+      setRoleFilter('ALL');
+    }
+  }, [location.pathname]);
+
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);

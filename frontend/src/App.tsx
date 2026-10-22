@@ -76,7 +76,8 @@ function ProtectedLayout() {
         {/* Faculty Routes */}
         <Route path="/my-subjects" element={<FacultyDashboard />} />
         <Route path="/enter-marks" element={<MarksEntryPage />} />
-        <Route path="/import-marks" element={<MarksEntryPage />} />
+        <Route path="/faculty/marks-entry" element={<MarksEntryPage />} />
+        <Route path="/import-marks" element={<Navigate to="/enter-marks" replace />} />
         <Route path="/subject-performance" element={<FacultyDashboard />} />
 
         {/* Exam Officer Routes */}
