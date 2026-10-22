@@ -1,91 +1,155 @@
 @import "tailwindcss";
 
 @layer base {
-  :root {
+  :root,
+  html.dark {
+    /* Centralized Design System Tokens - Dark Mode */
+    --color-bg-main: #0B1120;
+    --color-bg-sidebar: #111827;
+    --color-bg-surface: #151E2F;
+    --color-bg-surface-subtle: #1E293B;
+    --color-text-primary: #F1F5F9;
+    --color-text-secondary: #CBD5E1;
+    --color-text-muted: #94A3B8;
+    --color-brand-primary: #A5B4FC;
+    --color-brand-hover: #C7D2FE;
+    --color-border: #293548;
+    --color-nav-selected-bg: #252D4A;
+    --color-nav-selected-text: #C7D2FE;
+    --color-input-bg: #111827;
+    --color-status-success: #4ADE80;
+    --color-status-warning: #FBBF24;
+    --color-status-error: #F87171;
+    --color-status-info: #7DD3FC;
     color-scheme: dark;
   }
 
-  html.dark,
-  html.dark body {
-    background-color: #030712;
-    color: #f8fafc;
-    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
-    min-height: 100vh;
+  html.light {
+    /* Centralized Design System Tokens - Light Mode */
+    --color-bg-main: #F8FAFC;
+    --color-bg-sidebar: #FFFFFF;
+    --color-bg-surface: #FFFFFF;
+    --color-bg-surface-subtle: #F1F5F9;
+    --color-text-primary: #172033;
+    --color-text-secondary: #64748B;
+    --color-text-muted: #94A3B8;
+    --color-brand-primary: #4F46E5;
+    --color-brand-hover: #4338CA;
+    --color-border: #E2E8F0;
+    --color-nav-selected-bg: #EEF2FF;
+    --color-nav-selected-text: #4338CA;
+    --color-input-bg: #FFFFFF;
+    --color-status-success: #15803D;
+    --color-status-warning: #B45309;
+    --color-status-error: #B91C1C;
+    --color-status-info: #0369A1;
+    color-scheme: light;
   }
 
-  /* Deep dark scrollbar */
-  html.dark ::-webkit-scrollbar {
+  html, body {
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    min-height: 100vh;
+    transition: background-color 0.2s ease, color 0.2s ease;
+  }
+
+  html.dark, html.dark body {
+    background-color: var(--color-bg-main);
+    color: var(--color-text-primary);
+  }
+
+  html.light, html.light body {
+    background-color: var(--color-bg-main) !important;
+    color: var(--color-text-primary) !important;
+  }
+
+  /* Custom scrollbars */
+  ::-webkit-scrollbar {
     width: 6px;
     height: 6px;
   }
   html.dark ::-webkit-scrollbar-track {
-    background: #030712;
+    background: #0B1120;
   }
   html.dark ::-webkit-scrollbar-thumb {
-    background: #1e293b;
+    background: #293548;
     border-radius: 9999px;
   }
   html.dark ::-webkit-scrollbar-thumb:hover {
-    background: #334155;
+    background: #3B4B64;
   }
 
-  /* ----------------------------------------------------
-     LIGHT THEME STYLING
-     Crisp, accessible, high-contrast, modern institutional UI
-  ---------------------------------------------------- */
-  html.light,
-  html.light body {
-    background-color: #f8fafc !important;
-    color: #0f172a !important;
-    color-scheme: light !important;
-    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
-    min-height: 100vh;
-  }
-
-  /* Light scrollbar */
-  html.light ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
-  }
   html.light ::-webkit-scrollbar-track {
-    background: #f1f5f9;
+    background: #F1F5F9;
   }
   html.light ::-webkit-scrollbar-thumb {
-    background: #cbd5e1;
+    background: #CBD5E1;
     border-radius: 9999px;
   }
   html.light ::-webkit-scrollbar-thumb:hover {
-    background: #94a3b8;
+    background: #94A3B8;
   }
 }
 
-/* Light theme overrides for dark palette utility classes */
+/* --------------------------------------------------------------------------
+   SEMANTIC THEME OVERRIDES
+   Ensures complete portal-wide adaptation to Light and Dark modes
+-------------------------------------------------------------------------- */
+
+/* Surfaces & Cards */
+html.dark .bg-\[\#030712\],
+html.dark .bg-\[\#0B1120\] {
+  background-color: var(--color-bg-main) !important;
+}
 html.light .bg-\[\#030712\],
-html.light .bg-\[\#020617\],
+html.light .bg-\[\#0B1120\],
 html.light main.bg-\[\#030712\] {
-  background-color: #f8fafc !important;
+  background-color: var(--color-bg-main) !important;
 }
 
+html.dark .bg-\[\#0a0f1d\],
+html.dark .bg-\[\#0b101b\],
+html.dark .bg-\[\#151E2F\] {
+  background-color: var(--color-bg-surface) !important;
+}
 html.light .bg-\[\#0a0f1d\],
-html.light .bg-\[\#090d16\],
 html.light .bg-\[\#0b101b\],
-html.light aside.bg-\[\#090d16\],
-html.light header.bg-\[\#090d16\]\/95,
-html.light div.bg-\[\#090d16\] {
-  background-color: #ffffff !important;
+html.light .bg-\[\#151E2F\],
+html.light div.bg-\[\#0a0f1d\] {
+  background-color: var(--color-bg-surface) !important;
 }
 
+html.dark .bg-\[\#090d16\],
+html.dark .bg-\[\#111827\] {
+  background-color: var(--color-bg-sidebar) !important;
+}
+html.light .bg-\[\#090d16\],
+html.light .bg-\[\#111827\],
+html.light aside.bg-\[\#090d16\],
+html.light header.bg-\[\#090d16\]\/95 {
+  background-color: var(--color-bg-sidebar) !important;
+}
+
+html.dark .bg-\[\#070b13\],
+html.dark .bg-\[\#060a12\],
+html.dark .bg-\[\#0e162a\] {
+  background-color: var(--color-bg-surface-subtle) !important;
+}
 html.light .bg-\[\#070b13\],
 html.light .bg-\[\#060a12\],
-html.light .bg-\[\#0e162a\] {
-  background-color: #f1f5f9 !important;
-}
-
-html.light .bg-slate-900,
+html.light .bg-\[\#0e162a\],
 html.light .bg-slate-900\/60,
 html.light .bg-slate-900\/40,
 html.light .bg-slate-950 {
-  background-color: #f1f5f9 !important;
+  background-color: var(--color-bg-surface-subtle) !important;
+}
+
+/* Borders */
+html.dark .border-slate-800,
+html.dark .border-slate-800\/80,
+html.dark .border-slate-800\/60,
+html.dark .border-slate-700,
+html.dark .border-slate-700\/80 {
+  border-color: var(--color-border) !important;
 }
 
 html.light .border-slate-800,
@@ -93,33 +157,60 @@ html.light .border-slate-800\/80,
 html.light .border-slate-800\/60,
 html.light .border-slate-700,
 html.light .border-slate-700\/80 {
-  border-color: #e2e8f0 !important;
+  border-color: var(--color-border) !important;
 }
 
+html.dark .divide-slate-800 > :not([hidden]) ~ :not([hidden]),
+html.dark .divide-slate-800\/80 > :not([hidden]) ~ :not([hidden]) {
+  border-color: var(--color-border) !important;
+}
 html.light .divide-slate-800 > :not([hidden]) ~ :not([hidden]),
 html.light .divide-slate-800\/80 > :not([hidden]) ~ :not([hidden]) {
-  border-color: #e2e8f0 !important;
+  border-color: var(--color-border) !important;
 }
 
+/* Typography & Contrast */
+html.dark .text-white {
+  color: var(--color-text-primary) !important;
+}
 html.light .text-white {
-  color: #0f172a !important;
+  color: var(--color-text-primary) !important;
 }
 
+html.dark .text-slate-100,
+html.dark .text-slate-200 {
+  color: var(--color-text-primary) !important;
+}
 html.light .text-slate-100,
 html.light .text-slate-200 {
-  color: #1e293b !important;
+  color: var(--color-text-primary) !important;
 }
 
+html.dark .text-slate-300 {
+  color: var(--color-text-secondary) !important;
+}
 html.light .text-slate-300 {
-  color: #334155 !important;
+  color: var(--color-text-secondary) !important;
 }
 
+html.dark .text-slate-400 {
+  color: var(--color-text-muted) !important;
+}
 html.light .text-slate-400 {
-  color: #64748b !important;
+  color: var(--color-text-muted) !important;
 }
 
-html.light .text-slate-500 {
-  color: #94a3b8 !important;
+/* Form Inputs, Selects, & Textareas */
+html.dark select,
+html.dark input[type="text"],
+html.dark input[type="email"],
+html.dark input[type="password"],
+html.dark input[type="number"],
+html.dark input[type="search"],
+html.dark textarea {
+  background-color: var(--color-input-bg) !important;
+  border-color: var(--color-border) !important;
+  color: var(--color-text-primary) !important;
 }
 
 html.light select,
@@ -127,36 +218,73 @@ html.light input[type="text"],
 html.light input[type="email"],
 html.light input[type="password"],
 html.light input[type="number"],
+html.light input[type="search"],
 html.light textarea {
-  background-color: #ffffff !important;
-  border-color: #cbd5e1 !important;
-  color: #0f172a !important;
+  background-color: var(--color-input-bg) !important;
+  border-color: var(--color-border) !important;
+  color: var(--color-text-primary) !important;
 }
 
-html.light select option {
-  background-color: #ffffff !important;
-  color: #0f172a !important;
+select:focus,
+input:focus,
+textarea:focus {
+  outline: none !important;
+  border-color: #6366F1 !important;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2) !important;
 }
 
+select option {
+  background-color: var(--color-bg-surface) !important;
+  color: var(--color-text-primary) !important;
+}
+
+/* Tables */
+html.dark table thead tr {
+  background-color: #0E1628 !important;
+  border-color: var(--color-border) !important;
+}
 html.light table thead tr {
-  background-color: #f1f5f9 !important;
-  border-color: #e2e8f0 !important;
+  background-color: var(--color-bg-surface-subtle) !important;
+  border-color: var(--color-border) !important;
 }
 
-html.light table thead th {
-  color: #475569 !important;
+table thead th {
+  color: var(--color-text-secondary) !important;
+  font-weight: 600 !important;
 }
 
+html.dark table tbody tr:hover {
+  background-color: rgba(37, 45, 74, 0.35) !important;
+}
 html.light table tbody tr:hover {
-  background-color: #f8fafc !important;
+  background-color: #F8FAFC !important;
 }
 
+/* Cards & Shadows */
 html.light .shadow-2xl,
 html.light .shadow-xl {
-  box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.08), 0 8px 10px -6px rgba(15, 23, 42, 0.04) !important;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05) !important;
+  border-color: var(--color-border) !important;
 }
 
-html.light nav a.text-slate-400:hover {
-  background-color: #f1f5f9 !important;
-  color: #0f172a !important;
+html.dark .shadow-2xl,
+html.dark .shadow-xl {
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -4px rgba(0, 0, 0, 0.4) !important;
+  border-color: var(--color-border) !important;
+}
+
+/* Selected Navigation Item Styling */
+.nav-item-active {
+  background-color: var(--color-nav-selected-bg) !important;
+  color: var(--color-nav-selected-text) !important;
+  border: 1px solid rgba(99, 102, 241, 0.25) !important;
+  font-weight: 600 !important;
+}
+
+.nav-item-idle {
+  color: var(--color-text-secondary);
+}
+.nav-item-idle:hover {
+  background-color: var(--color-bg-surface-subtle) !important;
+  color: var(--color-text-primary) !important;
 }
