@@ -39,6 +39,16 @@ function RoleDashboard() {
   }
 }
 
+// Role-based route guard to prevent mismatch and unauthorized route access
+function RoleGuard({ allowedRoles, children }: { allowedRoles: string[]; children: React.ReactNode }) {
+  const { user } = useAuth();
+  if (!user) return <Navigate to="/login" replace />;
+  if (!allowedRoles.includes(user.role)) {
+    return <Navigate to="/dashboard" replace />;
+  }
+  return <>{children}</>;
+}
+
 // Protected layout wrapper
 function ProtectedLayout() {
   const { user, isLoading } = useAuth();
@@ -61,49 +71,233 @@ function ProtectedLayout() {
   return (
     <AppShell>
       <Routes>
-        {/* Universal Dashboard */}
+        {/* Universal Dynamic Role Dashboard */}
         <Route path="/" element={<RoleDashboard />} />
         <Route path="/dashboard" element={<RoleDashboard />} />
 
         {/* Student Routes */}
-        <Route path="/my-results" element={<StudentHistoryPage />} />
-        <Route path="/transcripts" element={<StudentHistoryPage />} />
-        <Route path="/analytics" element={<StudentDashboard />} />
-        <Route path="/arrears" element={<ArrearTrackerPage />} />
-        <Route path="/ai-assistant" element={<AIAssistantPage />} />
-        <Route path="/study-planner" element={<StudyPlannerPage />} />
+        <Route
+          path="/my-results"
+          element={
+            <RoleGuard allowedRoles={['STUDENT']}>
+              <StudentHistoryPage />
+            </RoleGuard>
+          }
+        />
+        <Route
+          path="/transcripts"
+          element={
+            <RoleGuard allowedRoles={['STUDENT']}>
+              <StudentHistoryPage />
+            </RoleGuard>
+          }
+        />
+        <Route
+          path="/analytics"
+          element={
+            <RoleGuard allowedRoles={['STUDENT']}>
+              <StudentDashboard />
+            </RoleGuard>
+          }
+        />
+        <Route
+          path="/arrears"
+          element={
+            <RoleGuard allowedRoles={['STUDENT']}>
+              <ArrearTrackerPage />
+            </RoleGuard>
+          }
+        />
+        <Route
+          path="/ai-assistant"
+          element={
+            <RoleGuard allowedRoles={['STUDENT']}>
+              <AIAssistantPage />
+            </RoleGuard>
+          }
+        />
+        <Route
+          path="/study-planner"
+          element={
+            <RoleGuard allowedRoles={['STUDENT']}>
+              <StudyPlannerPage />
+            </RoleGuard>
+          }
+        />
 
         {/* Faculty Routes */}
-        <Route path="/my-subjects" element={<FacultyDashboard />} />
-        <Route path="/enter-marks" element={<MarksEntryPage />} />
-        <Route path="/faculty/marks-entry" element={<MarksEntryPage />} />
-        <Route path="/import-marks" element={<Navigate to="/enter-marks" replace />} />
-        <Route path="/subject-performance" element={<FacultyDashboard />} />
+        <Route
+          path="/my-subjects"
+          element={
+            <RoleGuard allowedRoles={['FACULTY', 'HOD', 'ADMIN']}>
+              <FacultyDashboard />
+            </RoleGuard>
+          }
+        />
+        <Route
+          path="/enter-marks"
+          element={
+            <RoleGuard allowedRoles={['FACULTY', 'ADMIN']}>
+              <MarksEntryPage />
+            </RoleGuard>
+          }
+        />
+        <Route
+          path="/faculty/marks-entry"
+          element={
+            <RoleGuard allowedRoles={['FACULTY', 'ADMIN']}>
+              <MarksEntryPage />
+            </RoleGuard>
+          }
+        />
+        <Route
+          path="/import-marks"
+          element={
+            <RoleGuard allowedRoles={['FACULTY', 'ADMIN']}>
+              <Navigate to="/enter-marks" replace />
+            </RoleGuard>
+          }
+        />
+        <Route
+          path="/subject-performance"
+          element={
+            <RoleGuard allowedRoles={['FACULTY', 'HOD', 'ADMIN']}>
+              <FacultyDashboard />
+            </RoleGuard>
+          }
+        />
 
         {/* Exam Officer Routes */}
-        <Route path="/examinations" element={<ExamOfficerDashboard />} />
-        <Route path="/results" element={<ResultPublishPage />} />
-        <Route path="/exam-officer/dashboard" element={<ExamOfficerDashboard />} />
-        <Route path="/exam-officer/publish" element={<ResultPublishPage />} />
+        <Route
+          path="/examinations"
+          element={
+            <RoleGuard allowedRoles={['EXAM_OFFICER', 'ADMIN']}>
+              <ExamOfficerDashboard />
+            </RoleGuard>
+          }
+        />
+        <Route
+          path="/exam-officer/dashboard"
+          element={
+            <RoleGuard allowedRoles={['EXAM_OFFICER', 'ADMIN']}>
+              <ExamOfficerDashboard />
+            </RoleGuard>
+          }
+        />
+        <Route
+          path="/exam-officer/publish"
+          element={
+            <RoleGuard allowedRoles={['EXAM_OFFICER', 'ADMIN']}>
+              <ResultPublishPage />
+            </RoleGuard>
+          }
+        />
 
-        {/* Admin Routes */}
-        <Route path="/admin/dashboard" element={<AdminDashboard />} />
-        <Route path="/users" element={<UsersPage />} />
-        <Route path="/students" element={<UsersPage />} />
-        <Route path="/faculty" element={<UsersPage />} />
-        <Route path="/departments" element={<AcademicManagementPage />} />
-        <Route path="/programs" element={<AcademicManagementPage />} />
-        <Route path="/subjects" element={<AcademicManagementPage />} />
-        <Route path="/semesters" element={<AcademicManagementPage />} />
-        <Route path="/admin/academic" element={<AcademicManagementPage />} />
-        <Route path="/admin/users" element={<UsersPage />} />
-        <Route path="/audit-logs" element={<AuditLogsPage />} />
+        {/* Moderation / Academic Multi-Role Routes */}
+        <Route
+          path="/students"
+          element={
+            <RoleGuard allowedRoles={['ADMIN', 'EXAM_OFFICER', 'HOD']}>
+              <UsersPage />
+            </RoleGuard>
+          }
+        />
+        <Route
+          path="/faculty"
+          element={
+            <RoleGuard allowedRoles={['ADMIN', 'HOD']}>
+              <UsersPage />
+            </RoleGuard>
+          }
+        />
+        <Route
+          path="/results"
+          element={
+            <RoleGuard allowedRoles={['ADMIN', 'EXAM_OFFICER', 'HOD']}>
+              <ResultPublishPage />
+            </RoleGuard>
+          }
+        />
+        <Route
+          path="/subjects"
+          element={
+            <RoleGuard allowedRoles={['ADMIN', 'EXAM_OFFICER']}>
+              <AcademicManagementPage />
+            </RoleGuard>
+          }
+        />
+        <Route
+          path="/semesters"
+          element={
+            <RoleGuard allowedRoles={['ADMIN', 'EXAM_OFFICER']}>
+              <AcademicManagementPage />
+            </RoleGuard>
+          }
+        />
 
-        {/* Common Routes */}
+        {/* Admin-Only Routes */}
+        <Route
+          path="/admin/dashboard"
+          element={
+            <RoleGuard allowedRoles={['ADMIN']}>
+              <AdminDashboard />
+            </RoleGuard>
+          }
+        />
+        <Route
+          path="/users"
+          element={
+            <RoleGuard allowedRoles={['ADMIN']}>
+              <UsersPage />
+            </RoleGuard>
+          }
+        />
+        <Route
+          path="/departments"
+          element={
+            <RoleGuard allowedRoles={['ADMIN']}>
+              <AcademicManagementPage />
+            </RoleGuard>
+          }
+        />
+        <Route
+          path="/programs"
+          element={
+            <RoleGuard allowedRoles={['ADMIN']}>
+              <AcademicManagementPage />
+            </RoleGuard>
+          }
+        />
+        <Route
+          path="/admin/academic"
+          element={
+            <RoleGuard allowedRoles={['ADMIN']}>
+              <AcademicManagementPage />
+            </RoleGuard>
+          }
+        />
+        <Route
+          path="/admin/users"
+          element={
+            <RoleGuard allowedRoles={['ADMIN']}>
+              <UsersPage />
+            </RoleGuard>
+          }
+        />
+        <Route
+          path="/audit-logs"
+          element={
+            <RoleGuard allowedRoles={['ADMIN']}>
+              <AuditLogsPage />
+            </RoleGuard>
+          }
+        />
+
+        {/* Common Routes for Authenticated Users */}
         <Route path="/notifications" element={<NotificationsPage />} />
         <Route path="/settings" element={<SettingsPage />} />
 
-        {/* Fallback */}
+        {/* Fallback to dynamic dashboard */}
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </AppShell>
