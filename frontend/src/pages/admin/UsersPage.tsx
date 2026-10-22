@@ -73,17 +73,17 @@ export function UsersPage() {
   const roleBadge = (role: UserRole) => {
     switch (role) {
       case 'ADMIN':
-        return 'bg-purple-950/80 text-purple-300 border-purple-800/60';
+        return 'bg-purple-100 text-purple-800 border-purple-200 dark:bg-purple-950/80 dark:text-purple-300 dark:border-purple-800/60';
       case 'EXAM_OFFICER':
-        return 'bg-amber-950/80 text-amber-300 border-amber-800/60';
+        return 'bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-950/80 dark:text-amber-300 dark:border-amber-800/60';
       case 'HOD':
-        return 'bg-blue-950/80 text-blue-300 border-blue-800/60';
+        return 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-950/80 dark:text-blue-300 dark:border-blue-800/60';
       case 'FACULTY':
-        return 'bg-indigo-950/80 text-indigo-300 border-indigo-800/60';
+        return 'bg-indigo-100 text-indigo-800 border-indigo-200 dark:bg-indigo-950/80 dark:text-indigo-300 dark:border-indigo-800/60';
       case 'STUDENT':
-        return 'bg-emerald-950/80 text-emerald-300 border-emerald-800/60';
+        return 'bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-950/80 dark:text-emerald-300 dark:border-emerald-800/60';
       default:
-        return 'bg-slate-800 text-slate-300';
+        return 'bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700';
     }
   };
 
@@ -166,19 +166,19 @@ export function UsersPage() {
         </div>
 
         <div className="flex items-center gap-2 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0">
-          <Filter className="w-4 h-4 text-slate-400 shrink-0" />
+          <Filter className="w-4 h-4 text-slate-500 dark:text-slate-400 shrink-0" />
           {['ALL', 'STUDENT', 'FACULTY', 'HOD', 'EXAM_OFFICER', 'ADMIN'].map((role) => (
             <button
               key={role}
               onClick={() => setRoleFilter(role)}
               className={cn(
-                'px-3.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors',
+                'px-3.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors border',
                 roleFilter === role
-                  ? 'bg-indigo-600 text-white shadow-md'
-                  : 'bg-slate-800/80 text-slate-300 hover:bg-slate-700 hover:text-white'
+                  ? 'bg-indigo-600 text-white border-indigo-600 shadow-md'
+                  : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100 hover:text-slate-900 dark:bg-slate-800/80 dark:text-slate-300 dark:border-slate-700 dark:hover:bg-slate-700 dark:hover:text-white'
               )}
             >
-              {role}
+              {role === 'EXAM_OFFICER' ? 'EXAM OFFICER' : role}
             </button>
           ))}
         </div>
@@ -218,7 +218,7 @@ export function UsersPage() {
                           roleBadge(u.role)
                         )}
                       >
-                        {u.role}
+                        {u.role === 'EXAM_OFFICER' ? 'EXAM OFFICER' : u.role}
                       </span>
                     </td>
                     <td className="py-3.5 px-4 text-xs font-mono font-semibold text-slate-300">
@@ -226,18 +226,18 @@ export function UsersPage() {
                     </td>
                     <td className="py-3.5 px-4 text-center">
                       {isBlocked ? (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-500/15 text-rose-300 border border-rose-500/30">
-                          <Ban className="w-3.5 h-3.5 text-rose-400" />
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-100 text-rose-800 border border-rose-200 dark:bg-rose-500/15 dark:text-rose-300 dark:border-rose-500/30">
+                          <Ban className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
                           BLOCKED
                         </span>
                       ) : isInactive ? (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/15 text-amber-300 border border-amber-500/30">
-                          <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-200 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30">
+                          <AlertTriangle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
                           INACTIVE
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                           ACTIVE
                         </span>
                       )}
@@ -245,7 +245,7 @@ export function UsersPage() {
                     <td className="py-3.5 px-4 text-right">
                       <button
                         onClick={() => handleEditClick(u)}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white text-xs font-semibold transition-all border border-slate-700 shadow-sm active:scale-95"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white hover:bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-300 shadow-sm text-xs font-semibold transition-all dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-200 dark:border-slate-700 active:scale-95"
                       >
                         <UserCog className="w-3.5 h-3.5 text-indigo-400" />
                         Edit

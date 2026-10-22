@@ -143,10 +143,10 @@ export function StudyPlannerPage() {
                 key={day}
                 onClick={() => toggleDay(day)}
                 className={cn(
-                  'px-3 py-1 rounded-lg text-xs font-bold transition-all',
+                  'px-3 py-1 rounded-lg text-xs font-bold transition-all border',
                   selectedDays.includes(day)
-                    ? 'bg-indigo-600 text-white shadow-md'
-                    : 'bg-slate-800 text-slate-400 hover:text-white'
+                    ? 'bg-indigo-600 text-white border-indigo-600 shadow-md'
+                    : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100 hover:text-slate-900 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700 dark:hover:text-white'
                 )}
               >
                 {day}

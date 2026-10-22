@@ -137,17 +137,17 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const roleBadgeStyle = (role?: UserRole) => {
     switch (role) {
       case 'ADMIN':
-        return 'bg-purple-500/15 border-purple-500/30 text-purple-400';
+        return 'bg-purple-100 text-purple-800 border-purple-200 dark:bg-purple-500/15 dark:border-purple-500/30 dark:text-purple-400';
       case 'EXAM_OFFICER':
-        return 'bg-amber-500/15 border-amber-500/30 text-amber-400';
+        return 'bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-500/15 dark:border-amber-500/30 dark:text-amber-400';
       case 'HOD':
-        return 'bg-blue-500/15 border-blue-500/30 text-blue-400';
+        return 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-500/15 dark:border-blue-500/30 dark:text-blue-400';
       case 'FACULTY':
-        return 'bg-indigo-500/15 border-indigo-500/30 text-indigo-400';
+        return 'bg-indigo-100 text-indigo-800 border-indigo-200 dark:bg-indigo-500/15 dark:border-indigo-500/30 dark:text-indigo-400';
       case 'STUDENT':
-        return 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400';
+        return 'bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-500/15 dark:border-emerald-500/30 dark:text-emerald-400';
       default:
-        return 'bg-slate-500/15 border-slate-500/30 text-slate-400';
+        return 'bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-500/15 dark:border-slate-500/30 dark:text-slate-400';
     }
   };
 
@@ -320,7 +320,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               placeholder="Search records, subjects, modules... (Press /)"
               className="w-full bg-[#030712] border border-slate-700/80 rounded-xl pl-8 pr-12 py-1.5 text-xs text-white placeholder:text-slate-400 focus:outline-none focus:border-indigo-500 shadow-inner"
             />
-            <kbd className="absolute right-2.5 top-1.5 text-[10px] font-mono text-slate-400 bg-slate-800/80 border border-slate-700 px-1.5 py-0.5 rounded">
+            <kbd className="absolute right-2.5 top-1.5 text-[10px] font-mono text-slate-600 bg-slate-100 border border-slate-300 dark:text-slate-400 dark:bg-slate-800/80 dark:border-slate-700 px-1.5 py-0.5 rounded">
               /
             </kbd>
           </div>
@@ -331,14 +331,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <button
               type="button"
               onClick={toggleTheme}
-              className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800/80 transition-all cursor-pointer relative group"
+              className="p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-800/80 transition-all cursor-pointer relative group"
               title={`Switch to ${effectiveTheme === 'dark' ? 'Light Mode' : 'Dark Mode'}`}
               aria-label="Toggle theme appearance"
             >
               {effectiveTheme === 'dark' ? (
                 <Sun className="w-4 h-4 text-amber-400 group-hover:rotate-45 transition-transform" />
               ) : (
-                <Moon className="w-4 h-4 text-indigo-400 group-hover:-rotate-12 transition-transform" />
+                <Moon className="w-4 h-4 text-indigo-600 group-hover:-rotate-12 transition-transform" />
               )}
             </button>
 
@@ -346,7 +346,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <button
               type="button"
               onClick={() => navigate('/notifications')}
-              className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800/80 relative transition-colors cursor-pointer"
+              className="p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-800/80 relative transition-colors cursor-pointer"
               title="Notifications"
             >
               <Bell className="w-4 h-4" />
@@ -354,20 +354,20 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             </button>
 
             {/* User Profile Pill & Dropdown */}
-            <div className="relative pl-2 border-l border-slate-800" ref={dropdownRef}>
+            <div className="relative pl-2 border-l border-slate-300 dark:border-slate-800" ref={dropdownRef}>
               <button
                 type="button"
                 onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
-                className="flex items-center gap-2.5 p-1 rounded-xl hover:bg-slate-800/60 transition-all text-left cursor-pointer"
+                className="flex items-center gap-2.5 p-1 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-all text-left cursor-pointer"
               >
-                <div className="w-7 h-7 rounded-full bg-indigo-950 border border-indigo-700/60 flex items-center justify-center text-indigo-300 font-bold text-xs shadow-sm">
+                <div className="w-7 h-7 rounded-full bg-indigo-100 text-indigo-700 border border-indigo-200 dark:bg-indigo-950 dark:border-indigo-700/60 dark:text-indigo-300 flex items-center justify-center font-bold text-xs shadow-sm">
                   {user?.name?.charAt(0) || 'U'}
                 </div>
                 <div className="hidden sm:block leading-tight">
-                  <p className="text-xs font-bold text-white truncate max-w-[120px]">{user?.name}</p>
-                  <p className="text-[10px] text-slate-400 capitalize">{user?.role?.toLowerCase().replace('_', ' ')}</p>
+                  <p className="text-xs font-bold text-slate-900 dark:text-white truncate max-w-[120px]">{user?.name}</p>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 capitalize">{user?.role?.toLowerCase().replace('_', ' ')}</p>
                 </div>
-                <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+                <ChevronDown className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
               </button>
 
               {/* Profile Dropdown Menu */}

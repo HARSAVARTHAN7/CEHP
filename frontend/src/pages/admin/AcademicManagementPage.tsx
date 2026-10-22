@@ -236,15 +236,15 @@ export function AcademicManagementPage() {
                       <td className="py-3.5 px-4 text-center font-mono text-xs font-semibold text-purple-300">
                         Sem {semNum}
                       </td>
-                      <td className="py-3.5 px-4 text-center font-mono text-slate-200 font-bold">{sub.credits}</td>
+                      <td className="py-3.5 px-4 text-center font-mono text-slate-900 dark:text-slate-200 font-bold">{sub.credits}</td>
                       <td className="py-3.5 px-4 text-center">
-                        <span className="px-2.5 py-0.5 rounded text-xs bg-slate-800 text-slate-300 font-semibold uppercase">
+                        <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold uppercase bg-blue-100 text-blue-700 border border-blue-200 dark:bg-blue-950/70 dark:text-blue-300 dark:border-blue-800/60">
                           {sub.type || sub.subjectType || 'THEORY'}
                         </span>
                       </td>
-                      <td className="py-3.5 px-4 text-center font-mono text-slate-300 font-medium">{sub.maxMarks || sub.totalMaxMarks || 100}</td>
+                      <td className="py-3.5 px-4 text-center font-mono text-slate-700 dark:text-slate-300 font-medium">{sub.maxMarks || sub.totalMaxMarks || 100}</td>
                       <td className="py-3.5 px-4 text-center">
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30">
                           Active
                         </span>
                       </td>

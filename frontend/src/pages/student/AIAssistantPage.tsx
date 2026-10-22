@@ -116,7 +116,7 @@ export default function AIAssistantPage() {
         {messages.length > 1 && (
           <button
             onClick={() => setShowClearConfirm(true)}
-            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-rose-950 hover:text-rose-300 text-slate-400 text-xs font-semibold border border-slate-700 transition-all shadow-md active:scale-95 whitespace-nowrap"
+            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white dark:bg-slate-800 hover:bg-rose-50 dark:hover:bg-rose-950 hover:text-rose-600 dark:hover:text-rose-300 text-slate-700 dark:text-slate-400 text-xs font-semibold border border-slate-300 dark:border-slate-700 hover:border-rose-300 dark:hover:border-rose-800 transition-all shadow-md active:scale-95 whitespace-nowrap"
           >
             <Trash2 className="w-3.5 h-3.5" />
             Clear Chat
@@ -130,27 +130,27 @@ export default function AIAssistantPage() {
           <div className="bg-[#0a0f1d] rounded-2xl border border-slate-800 p-5 shadow-xl">
             <div className="flex items-center gap-2 mb-3.5">
               <Sparkles className="w-4 h-4 text-indigo-400" />
-              <h3 className="text-sm font-bold text-white">Performance Telemetry</h3>
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white">Performance Telemetry</h3>
             </div>
             <div className="space-y-3 text-xs">
-              <div className="flex justify-between items-center py-1 border-b border-slate-800/80">
-                <span className="text-slate-400 font-medium">Cumulative CGPA</span>
-                <span className="text-sm font-extrabold text-indigo-400 font-mono">
+              <div className="flex justify-between items-center py-1 border-b border-slate-200 dark:border-slate-800/80">
+                <span className="text-slate-500 dark:text-slate-400 font-medium">Cumulative CGPA</span>
+                <span className="text-sm font-extrabold text-indigo-600 dark:text-indigo-400 font-mono">
                   {summary.overallCGPA?.toFixed(2) || '8.45'}
                 </span>
               </div>
-              <div className="flex justify-between items-center py-1 border-b border-slate-800/80">
-                <span className="text-slate-400 font-medium">Trajectory</span>
-                <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+              <div className="flex justify-between items-center py-1 border-b border-slate-200 dark:border-slate-800/80">
+                <span className="text-slate-500 dark:text-slate-400 font-medium">Trajectory</span>
+                <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30">
                   {summary.performanceTrend || 'IMPROVING'}
                 </span>
               </div>
               <div>
-                <p className="text-slate-400 font-medium mb-1.5">Top Scoring Courses</p>
-                <span className="block text-emerald-300 bg-emerald-950/60 border border-emerald-800/60 px-2.5 py-1 rounded-lg mb-1 font-mono">
+                <p className="text-slate-500 dark:text-slate-400 font-medium mb-1.5">Top Scoring Courses</p>
+                <span className="block text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800/60 px-2.5 py-1 rounded-lg mb-1 font-mono">
                   Operating Systems (Grade O)
                 </span>
-                <span className="block text-indigo-300 bg-indigo-950/60 border border-indigo-800/60 px-2.5 py-1 rounded-lg font-mono">
+                <span className="block text-indigo-800 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800/60 px-2.5 py-1 rounded-lg font-mono">
                   Database Systems (Grade A+)
                 </span>
               </div>
@@ -158,13 +158,13 @@ export default function AIAssistantPage() {
           </div>
 
           <div className="bg-[#0a0f1d] rounded-2xl border border-slate-800 p-5 shadow-xl">
-            <h3 className="text-sm font-bold text-white mb-3">Suggested Inquiries</h3>
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-3">Suggested Inquiries</h3>
             <div className="space-y-1.5">
               {SUGGESTED_QUESTIONS.map((q) => (
                 <button
                   key={q}
                   onClick={() => sendMessage(q)}
-                  className="w-full text-left text-xs px-3 py-2.5 bg-[#030712] hover:bg-indigo-950/70 hover:text-indigo-300 rounded-xl transition-all text-slate-300 border border-slate-800 hover:border-indigo-700/50"
+                  className="w-full text-left text-xs px-3 py-2.5 bg-white dark:bg-[#030712] hover:bg-indigo-50 dark:hover:bg-indigo-950/70 rounded-xl transition-all text-slate-700 dark:text-slate-300 hover:text-indigo-700 dark:hover:text-indigo-300 border border-slate-300 dark:border-slate-800 hover:border-indigo-300 dark:hover:border-indigo-700/50"
                 >
                   {q}
                 </button>
@@ -189,7 +189,7 @@ export default function AIAssistantPage() {
                     'max-w-[82%] rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-md group relative',
                     msg.role === 'user'
                       ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white rounded-tr-sm font-medium'
-                      : 'bg-[#121a2d] text-slate-100 border border-slate-700/60 rounded-tl-sm'
+                      : 'bg-slate-100 dark:bg-[#121a2d] text-slate-800 dark:text-slate-100 border border-slate-200 dark:border-slate-700/60 rounded-tl-sm'
                   )}
                 >
                   {msg.role === 'assistant' && (
@@ -199,23 +199,23 @@ export default function AIAssistantPage() {
                         setCopiedIdx(idx);
                         setTimeout(() => setCopiedIdx(null), 2000);
                       }}
-                      className="absolute top-2 right-2 p-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-400 hover:text-white opacity-0 group-hover:opacity-100 transition-opacity text-xs flex items-center gap-1"
+                      className="absolute top-2 right-2 p-1.5 rounded-lg bg-white/90 dark:bg-slate-800/80 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white border border-slate-200 dark:border-slate-700 opacity-0 group-hover:opacity-100 transition-opacity text-xs flex items-center gap-1 shadow-sm"
                       title="Copy response to clipboard"
                     >
-                      {copiedIdx === idx ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                      {copiedIdx === idx ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
                     </button>
                   )}
                   {msg.content.split('\n').map((line, i) => (
                     <p key={i} className={i > 0 ? 'mt-1' : ''}>{line}</p>
                   ))}
                   {msg.mode && (
-                    <p className="text-[10px] mt-1.5 text-indigo-300/80 font-mono italic">
+                    <p className="text-[10px] mt-1.5 text-indigo-600 dark:text-indigo-300/80 font-mono italic">
                       Verified via institutional calculation engine ({msg.mode})
                     </p>
                   )}
                 </div>
                 {msg.role === 'user' && (
-                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-300">
+                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 flex items-center justify-center text-slate-700 dark:text-slate-300">
                     <User className="w-4 h-4" />
                   </div>
                 )}
@@ -223,18 +223,18 @@ export default function AIAssistantPage() {
             ))}
             {isLoading && (
               <div className="flex gap-3">
-                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-indigo-950 border border-indigo-700/60 flex items-center justify-center text-indigo-400">
+                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-950 border border-indigo-200 dark:border-indigo-700/60 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
                   <Bot className="w-4 h-4" />
                 </div>
-                <div className="bg-[#121a2d] border border-slate-700/60 rounded-2xl rounded-tl-sm px-4 py-3">
-                  <Loader2 className="w-4 h-4 text-indigo-400 animate-spin" />
+                <div className="bg-slate-100 dark:bg-[#121a2d] border border-slate-200 dark:border-slate-700/60 rounded-2xl rounded-tl-sm px-4 py-3">
+                  <Loader2 className="w-4 h-4 text-indigo-600 dark:text-indigo-400 animate-spin" />
                 </div>
               </div>
             )}
           </div>
 
           {/* Chat Input */}
-          <div className="border-t border-slate-800 p-4 bg-[#080d19]">
+          <div className="border-t border-slate-200 dark:border-slate-800 p-4 bg-slate-50 dark:bg-[#080d19]">
             <form
               onSubmit={(e) => { e.preventDefault(); sendMessage(input); }}
               className="flex gap-2"
@@ -244,7 +244,7 @@ export default function AIAssistantPage() {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 placeholder="Ask about your CGPA, arrear backlogs, study timetable..."
-                className="flex-1 px-4 py-2.5 bg-[#030712] border border-slate-700 rounded-xl text-sm text-white placeholder-slate-400 focus:outline-none focus:border-indigo-500 shadow-inner"
+                className="flex-1 px-4 py-2.5 bg-white dark:bg-[#030712] border border-slate-300 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-indigo-500 shadow-inner"
                 disabled={isLoading}
               />
               <button

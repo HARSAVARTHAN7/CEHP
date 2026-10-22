@@ -211,16 +211,16 @@ export function MarksEntryPage() {
         </div>
 
         <div className="flex items-center gap-3">
-          <label className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-100 text-xs font-semibold cursor-pointer transition-all border border-slate-700/80 shadow-md">
-            <Upload className="w-3.5 h-3.5 text-indigo-400" />
+          <label className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white hover:bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-300 shadow-sm text-xs font-semibold cursor-pointer transition-all dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-100 dark:border-slate-700/80">
+            <Upload className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
             Upload CSV
             <input type="file" accept=".csv" onChange={handleCSVUpload} className="hidden" />
           </label>
           <button
             onClick={handleExportCSV}
-            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-100 text-xs font-semibold transition-all border border-slate-700/80 shadow-md"
+            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white hover:bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-300 shadow-sm text-xs font-semibold transition-all dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-100 dark:border-slate-700/80"
           >
-            <Download className="w-3.5 h-3.5 text-emerald-400" />
+            <Download className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
             Download CSV Roster
           </button>
         </div>
@@ -295,8 +295,8 @@ export function MarksEntryPage() {
       <div className="bg-[#0a0f1d] rounded-2xl border border-slate-800 overflow-hidden shadow-2xl">
         <div className="p-4 border-b border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#080d19]">
           <div className="flex items-center gap-3">
-            <span className="text-sm font-bold text-white">Student Roster & Marks Grading</span>
-            <span className="text-xs px-2.5 py-0.5 rounded bg-slate-800 text-slate-300 font-medium">
+            <span className="text-sm font-bold text-slate-900 dark:text-white">Student Roster & Marks Grading</span>
+            <span className="text-xs px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 font-medium">
               {filteredStudents.length} candidates
             </span>
           </div>
@@ -426,16 +426,16 @@ export function MarksEntryPage() {
           <div className="flex items-center gap-3">
             <button
               onClick={() => setShowClearConfirm(true)}
-              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-rose-950 hover:text-rose-300 text-slate-400 text-xs font-semibold transition-all border border-slate-700/80 shadow-md active:scale-95"
+              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white hover:bg-rose-50 text-slate-700 hover:text-rose-700 border border-slate-300 hover:border-rose-300 shadow-sm text-xs font-semibold transition-all dark:bg-slate-800 dark:hover:bg-rose-950 dark:hover:text-rose-300 dark:text-slate-400 dark:border-slate-700/80 active:scale-95"
             >
-              <Trash2 className="w-3.5 h-3.5" />
+              <Trash2 className="w-3.5 h-3.5 text-rose-500" />
               Clear All Marks
             </button>
             <button
               onClick={handleSaveDraft}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-100 text-xs font-semibold transition-all border border-slate-700/80 shadow-md active:scale-95"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white hover:bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-300 shadow-sm text-xs font-semibold transition-all dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-100 dark:border-slate-700/80 active:scale-95"
             >
-              <Save className="w-3.5 h-3.5" />
+              <Save className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
               Save as Draft
             </button>
             <button

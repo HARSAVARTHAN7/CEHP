@@ -342,10 +342,10 @@ export function ExamOfficerDashboard() {
           <button
             onClick={() => setActiveTab('pending')}
             className={cn(
-              'px-4 py-2 rounded-lg text-xs font-semibold transition-all',
+              'px-4 py-2 rounded-lg text-xs font-semibold transition-all border',
               activeTab === 'pending'
-                ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-inner'
-                : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
+                ? 'bg-amber-100 text-amber-800 border-amber-300 shadow-sm dark:bg-amber-500/20 dark:text-amber-300 dark:border-amber-500/40'
+                : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100 hover:text-slate-900 dark:bg-transparent dark:text-slate-300 dark:border-transparent dark:hover:text-white dark:hover:bg-slate-800/60'
             )}
           >
             Pending Review ({pendingSubmissions.length})
@@ -353,10 +353,10 @@ export function ExamOfficerDashboard() {
           <button
             onClick={() => setActiveTab('approved')}
             className={cn(
-              'px-4 py-2 rounded-lg text-xs font-semibold transition-all',
+              'px-4 py-2 rounded-lg text-xs font-semibold transition-all border',
               activeTab === 'approved'
-                ? 'bg-blue-500/20 text-blue-300 border border-blue-500/40 shadow-inner'
-                : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
+                ? 'bg-emerald-100 text-emerald-800 border-emerald-300 shadow-sm dark:bg-emerald-500/20 dark:text-emerald-300 dark:border-emerald-500/40'
+                : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100 hover:text-slate-900 dark:bg-transparent dark:text-slate-300 dark:border-transparent dark:hover:text-white dark:hover:bg-slate-800/60'
             )}
           >
             Approved ({approvedList.length})
@@ -364,10 +364,10 @@ export function ExamOfficerDashboard() {
           <button
             onClick={() => setActiveTab('all')}
             className={cn(
-              'px-4 py-2 rounded-lg text-xs font-semibold transition-all',
+              'px-4 py-2 rounded-lg text-xs font-semibold transition-all border',
               activeTab === 'all'
-                ? 'bg-slate-800 text-white border border-slate-700 shadow-md'
-                : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
+                ? 'bg-indigo-600 text-white border-indigo-600 shadow-md dark:bg-indigo-600 dark:text-white'
+                : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100 hover:text-slate-900 dark:bg-transparent dark:text-slate-300 dark:border-transparent dark:hover:text-white dark:hover:bg-slate-800/60'
             )}
           >
             All Submissions ({results.length})

@@ -185,25 +185,25 @@ export function FacultyDashboard() {
             <div key={sub._id} className="p-5 hover:bg-slate-800/30 transition-colors flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
-                  <span className="px-2.5 py-0.5 rounded bg-indigo-950 text-indigo-300 font-mono text-xs font-bold border border-indigo-800/60">
+                  <span className="px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-700 border border-indigo-200 dark:bg-indigo-950 dark:text-indigo-300 dark:border-indigo-800/60 font-mono text-xs font-bold">
                     {sub.code}
                   </span>
-                  <span className="text-xs px-2 py-0.5 rounded bg-slate-800 text-slate-300 uppercase font-medium">
+                  <span className="text-xs px-2.5 py-0.5 rounded-full uppercase font-semibold bg-blue-100 text-blue-700 border border-blue-200 dark:bg-blue-950/70 dark:text-blue-300 dark:border-blue-800/60">
                     {sub.type || 'THEORY'}
                   </span>
                 </div>
-                <h3 className="text-base font-bold text-white">{sub.name}</h3>
-                <div className="text-xs text-slate-300 flex items-center gap-4">
-                  <span>Credits: <strong className="text-white font-mono">{sub.credits}</strong></span>
-                  <span>Internal: <strong className="text-white font-mono">40 marks</strong></span>
-                  <span>External: <strong className="text-white font-mono">60 marks</strong></span>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">{sub.name}</h3>
+                <div className="text-xs text-slate-600 dark:text-slate-300 flex items-center gap-4">
+                  <span>Credits: <strong className="text-slate-900 dark:text-white font-mono">{sub.credits}</strong></span>
+                  <span>Internal: <strong className="text-slate-900 dark:text-white font-mono">40 marks</strong></span>
+                  <span>External: <strong className="text-slate-900 dark:text-white font-mono">60 marks</strong></span>
                 </div>
               </div>
 
               <div className="flex items-center gap-2">
                 <Link
                   to={`/enter-marks?subject=${sub._id}`}
-                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-indigo-600 hover:text-white text-slate-100 text-xs font-semibold transition-all border border-slate-700/80 shadow-md"
+                  className="px-4 py-2 rounded-xl bg-white hover:bg-indigo-600 hover:text-white text-slate-700 hover:border-indigo-600 border border-slate-300 shadow-sm text-xs font-semibold transition-all dark:bg-slate-800 dark:hover:bg-indigo-600 dark:text-slate-100 dark:border-slate-700/80 active:scale-95"
                 >
                   Enter / Edit Marks
                 </Link>

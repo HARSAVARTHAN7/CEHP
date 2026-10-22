@@ -221,6 +221,7 @@ html.light .text-slate-500 {
 html.light button.bg-indigo-600,
 html.light a.bg-indigo-600,
 html.light .bg-indigo-600,
+html.light [class*="bg-indigo-600"],
 html.light button.bg-rose-600,
 html.light a.bg-rose-600,
 html.light .bg-rose-600,
@@ -234,9 +235,16 @@ html.light [class*="bg-gradient-to-r"] {
   color: #FFFFFF !important;
 }
 
+html.light button.bg-indigo-600,
+html.light [class*="bg-indigo-600"] {
+  background-color: #4338CA !important;
+  border-color: #4338CA !important;
+}
+
 html.light button.bg-indigo-600 *,
 html.light a.bg-indigo-600 *,
 html.light .bg-indigo-600 *,
+html.light [class*="bg-indigo-600"] *,
 html.light button.bg-rose-600 *,
 html.light a.bg-rose-600 *,
 html.light .bg-rose-600 *,
@@ -250,26 +258,75 @@ html.light [class*="bg-gradient-to-r"] * {
   color: #FFFFFF !important;
 }
 
-/* 5. Secondary, Outline, and Ghost Buttons */
+/* 5. Filter Buttons, Inactive Role Tabs, and Secondary Buttons (Light Mode) */
+html.light button[class*="bg-slate-800"],
+html.light a[class*="bg-slate-800"],
+html.light button[class*="bg-slate-900"],
+html.light a[class*="bg-slate-900"],
 html.light button.bg-slate-800,
 html.light a.bg-slate-800,
-html.light button.bg-slate-900 {
-  background-color: #F1F5F9 !important;
-  border-color: #CBD5E1 !important;
-  color: #0F172A !important;
+html.light button.bg-slate-900,
+html.light label[class*="bg-slate-800"],
+html.light .btn-secondary {
+  background-color: #FFFFFF !important;
+  color: #334155 !important; /* Slate-700 on white: 9.6:1 contrast ratio */
+  border: 1px solid #CBD5E1 !important;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05) !important;
 }
 
+html.light button[class*="bg-slate-800"]:hover,
+html.light a[class*="bg-slate-800"]:hover,
+html.light button[class*="bg-slate-900"]:hover,
+html.light a[class*="bg-slate-900"]:hover,
 html.light button.bg-slate-800:hover,
 html.light a.bg-slate-800:hover,
-html.light button.bg-slate-900:hover {
-  background-color: #E2E8F0 !important;
+html.light button.bg-slate-900:hover,
+html.light label[class*="bg-slate-800"]:hover,
+html.light .btn-secondary:hover {
+  background-color: #F1F5F9 !important;
+  color: #0F172A !important;
+  border-color: #94A3B8 !important;
+}
+
+html.light button[class*="bg-slate-800"] *,
+html.light a[class*="bg-slate-800"] *,
+html.light button.bg-slate-800 *,
+html.light a.bg-slate-800 *,
+html.light label[class*="bg-slate-800"] * {
+  color: #334155 !important;
+}
+
+html.light button[class*="bg-slate-800"]:hover *,
+html.light a[class*="bg-slate-800"]:hover *,
+html.light button.bg-slate-800:hover *,
+html.light a.bg-slate-800:hover *,
+html.light label[class*="bg-slate-800"]:hover * {
   color: #0F172A !important;
 }
 
-html.light button.bg-slate-800 *,
-html.light a.bg-slate-800 *,
-html.light button.bg-slate-900 * {
-  color: inherit !important;
+/* 5B. THEORY and PRACTICAL Subject Type Labels (Light Mode) */
+html.light .badge-theory,
+html.light .badge-practical,
+html.light span.badge-theory,
+html.light span.badge-practical,
+html.light td > span.bg-slate-800,
+html.light div.flex > span.bg-slate-800,
+html.light span[class*="bg-blue-100"] {
+  background-color: #DBEAFE !important; /* Light blue background */
+  color: #1D4ED8 !important; /* Dark blue text: 5.1:1 contrast ratio */
+  border: 1px solid #BFDBFE !important;
+  font-weight: 600 !important;
+}
+
+html.light td > span.bg-slate-800 *,
+html.light div.flex > span.bg-slate-800 * {
+  color: #1D4ED8 !important;
+}
+
+/* Filter and search icons */
+html.light .lucide-filter,
+html.light .lucide-search {
+  color: #64748B !important; /* Muted slate: 4.6:1 contrast ratio */
 }
 
 /* 6. High-Contrast Accessible Status Badges & Text (WCAG AA >= 4.5:1) */

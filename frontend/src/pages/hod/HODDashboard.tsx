@@ -241,16 +241,16 @@ export function HODDashboard() {
 
           {/* Filter Status */}
           <div className="flex items-center gap-2">
-            <Filter className="w-4 h-4 text-slate-400" />
+            <Filter className="w-4 h-4 text-slate-500 dark:text-slate-400" />
             {['ALL', 'SUBMITTED', 'APPROVED', 'PUBLISHED'].map((st) => (
               <button
                 key={st}
                 onClick={() => setFilterStatus(st)}
                 className={cn(
-                  'px-3 py-1 rounded-lg text-xs font-semibold transition-all',
+                  'px-3 py-1 rounded-lg text-xs font-semibold transition-all border',
                   filterStatus === st
-                    ? 'bg-indigo-600 text-white shadow-md'
-                    : 'bg-slate-800/70 text-slate-300 hover:bg-slate-700 hover:text-white'
+                    ? 'bg-indigo-600 text-white border-indigo-600 shadow-md'
+                    : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100 hover:text-slate-900 dark:bg-slate-800/70 dark:text-slate-300 dark:border-slate-700 dark:hover:bg-slate-700 dark:hover:text-white'
                 )}
               >
                 {st}
