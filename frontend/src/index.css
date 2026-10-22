@@ -5,26 +5,158 @@
     color-scheme: dark;
   }
 
-  html, body {
+  html.dark,
+  html.dark body {
     background-color: #030712;
     color: #f8fafc;
     font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
     min-height: 100vh;
   }
 
-  /* Custom scrollbar for deep dark theme */
-  ::-webkit-scrollbar {
+  /* Deep dark scrollbar */
+  html.dark ::-webkit-scrollbar {
     width: 6px;
     height: 6px;
   }
-  ::-webkit-scrollbar-track {
+  html.dark ::-webkit-scrollbar-track {
     background: #030712;
   }
-  ::-webkit-scrollbar-thumb {
+  html.dark ::-webkit-scrollbar-thumb {
     background: #1e293b;
     border-radius: 9999px;
   }
-  ::-webkit-scrollbar-thumb:hover {
+  html.dark ::-webkit-scrollbar-thumb:hover {
     background: #334155;
   }
+
+  /* ----------------------------------------------------
+     LIGHT THEME STYLING
+     Crisp, accessible, high-contrast, modern institutional UI
+  ---------------------------------------------------- */
+  html.light,
+  html.light body {
+    background-color: #f8fafc !important;
+    color: #0f172a !important;
+    color-scheme: light !important;
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    min-height: 100vh;
+  }
+
+  /* Light scrollbar */
+  html.light ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  html.light ::-webkit-scrollbar-track {
+    background: #f1f5f9;
+  }
+  html.light ::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 9999px;
+  }
+  html.light ::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+  }
+}
+
+/* Light theme overrides for dark palette utility classes */
+html.light .bg-\[\#030712\],
+html.light .bg-\[\#020617\],
+html.light main.bg-\[\#030712\] {
+  background-color: #f8fafc !important;
+}
+
+html.light .bg-\[\#0a0f1d\],
+html.light .bg-\[\#090d16\],
+html.light .bg-\[\#0b101b\],
+html.light aside.bg-\[\#090d16\],
+html.light header.bg-\[\#090d16\]\/95,
+html.light div.bg-\[\#090d16\] {
+  background-color: #ffffff !important;
+}
+
+html.light .bg-\[\#070b13\],
+html.light .bg-\[\#060a12\],
+html.light .bg-\[\#0e162a\] {
+  background-color: #f1f5f9 !important;
+}
+
+html.light .bg-slate-900,
+html.light .bg-slate-900\/60,
+html.light .bg-slate-900\/40,
+html.light .bg-slate-950 {
+  background-color: #f1f5f9 !important;
+}
+
+html.light .border-slate-800,
+html.light .border-slate-800\/80,
+html.light .border-slate-800\/60,
+html.light .border-slate-700,
+html.light .border-slate-700\/80 {
+  border-color: #e2e8f0 !important;
+}
+
+html.light .divide-slate-800 > :not([hidden]) ~ :not([hidden]),
+html.light .divide-slate-800\/80 > :not([hidden]) ~ :not([hidden]) {
+  border-color: #e2e8f0 !important;
+}
+
+html.light .text-white {
+  color: #0f172a !important;
+}
+
+html.light .text-slate-100,
+html.light .text-slate-200 {
+  color: #1e293b !important;
+}
+
+html.light .text-slate-300 {
+  color: #334155 !important;
+}
+
+html.light .text-slate-400 {
+  color: #64748b !important;
+}
+
+html.light .text-slate-500 {
+  color: #94a3b8 !important;
+}
+
+html.light select,
+html.light input[type="text"],
+html.light input[type="email"],
+html.light input[type="password"],
+html.light input[type="number"],
+html.light textarea {
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  color: #0f172a !important;
+}
+
+html.light select option {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+}
+
+html.light table thead tr {
+  background-color: #f1f5f9 !important;
+  border-color: #e2e8f0 !important;
+}
+
+html.light table thead th {
+  color: #475569 !important;
+}
+
+html.light table tbody tr:hover {
+  background-color: #f8fafc !important;
+}
+
+html.light .shadow-2xl,
+html.light .shadow-xl {
+  box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.08), 0 8px 10px -6px rgba(15, 23, 42, 0.04) !important;
+}
+
+html.light nav a.text-slate-400:hover {
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important;
 }

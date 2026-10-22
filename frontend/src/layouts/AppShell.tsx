@@ -4,9 +4,10 @@ import {
   GraduationCap, LayoutDashboard, BookOpen, BarChart3, BrainCircuit,
   FileText, Bell, Settings, Users, Building2, ChevronLeft, ChevronRight,
   Menu, X, LogOut, User, ClipboardList, Shield,
-  TrendingUp, BookMarked, AlertTriangle,
+  TrendingUp, BookMarked, AlertTriangle, Sun, Moon,
 } from 'lucide-react';
 import { useAuth } from '../features/auth/AuthContext';
+import { useTheme } from '../features/theme/ThemeContext';
 import { cn } from '../lib/utils';
 import { UserRole } from '../types';
 
@@ -49,6 +50,7 @@ const navItems: NavItem[] = [
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
+  const { toggleTheme, effectiveTheme } = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -218,6 +220,21 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Quick Theme Toggle Button */}
+            <button
+              type="button"
+              onClick={toggleTheme}
+              className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800/80 transition-colors cursor-pointer"
+              title={`Switch to ${effectiveTheme === 'dark' ? 'Light' : 'Dark'} Mode`}
+              aria-label="Toggle theme mode"
+            >
+              {effectiveTheme === 'dark' ? (
+                <Sun className="w-4 h-4 text-amber-400 hover:rotate-45 transition-transform" />
+              ) : (
+                <Moon className="w-4 h-4 text-indigo-400 hover:-rotate-12 transition-transform" />
+              )}
+            </button>
+
             {/* Notifications bell */}
             <button
               onClick={() => navigate('/notifications')}

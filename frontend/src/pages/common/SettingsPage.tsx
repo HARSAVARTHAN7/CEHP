@@ -1,14 +1,16 @@
 import { useState } from 'react';
 import {
   Settings, User, Shield, Bell, Key, Database,
-  CheckCircle2, Save, Moon, Lock, RefreshCw, Cpu
+  CheckCircle2, Save, Moon, Sun, Monitor, Check, Lock, RefreshCw, Cpu
 } from 'lucide-react';
 import { useAuth } from '../../features/auth/AuthContext';
+import { useTheme, ThemeMode } from '../../features/theme/ThemeContext';
 import { cn } from '../../lib/utils';
 
 export function SettingsPage() {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'preferences'>('profile');
+  const { theme, setTheme, effectiveTheme } = useTheme();
+  const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'preferences'>('preferences');
   const [savedSuccess, setSavedSuccess] = useState('');
 
   const [name, setName] = useState(user?.name || '');
@@ -186,14 +188,116 @@ export function SettingsPage() {
                 className="w-4 h-4 rounded border-slate-700 text-indigo-600 focus:ring-0 bg-[#030712] cursor-pointer"
               />
             </div>
-            <div className="flex items-center justify-between">
+            {/* Theme Mode & UI Appearance */}
+            <div className="space-y-3 pt-2">
               <div>
-                <p className="text-sm font-semibold text-white">Theme Mode</p>
-                <p className="text-xs text-slate-400">CEHP Obsidian High-Contrast Dark Theme (Active)</p>
+                <p className="text-sm font-bold text-white">Theme Mode & Portal Appearance</p>
+                <p className="text-xs text-slate-400">
+                  Select your preferred interface display mode. Applies instantly across all dashboards, modules, tables, and dialogs.
+                </p>
               </div>
-              <span className="px-3 py-1 rounded-lg bg-indigo-950/80 text-indigo-300 border border-indigo-800/60 text-xs font-bold">
-                Deep Obsidian
-              </span>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+                {/* Dark Theme Option */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTheme('dark');
+                    setSavedSuccess('Theme set to Dark Mode (Deep Obsidian).');
+                    setTimeout(() => setSavedSuccess(''), 2500);
+                  }}
+                  className={cn(
+                    'p-3.5 rounded-xl border text-left flex flex-col justify-between transition-all relative overflow-hidden',
+                    theme === 'dark'
+                      ? 'bg-indigo-600/15 border-indigo-500 shadow-md ring-1 ring-indigo-500/50'
+                      : 'bg-slate-900/40 border-slate-800 hover:border-slate-700 hover:bg-slate-800/40'
+                  )}
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="p-2 rounded-lg bg-slate-950 border border-slate-800 text-indigo-400">
+                      <Moon className="w-4 h-4" />
+                    </div>
+                    {theme === 'dark' && (
+                      <span className="flex items-center gap-1 text-[11px] font-bold text-indigo-400 bg-indigo-500/15 px-2 py-0.5 rounded-full border border-indigo-500/30">
+                        <Check className="w-3 h-3" /> Active
+                      </span>
+                    )}
+                  </div>
+                  <div>
+                    <h3 className="text-xs font-bold text-white">Dark Theme</h3>
+                    <p className="text-[11px] text-slate-400 mt-0.5">Deep Obsidian high-contrast night palette</p>
+                  </div>
+                </button>
+
+                {/* Light Theme Option */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTheme('light');
+                    setSavedSuccess('Theme set to Light Mode (Clean Slate).');
+                    setTimeout(() => setSavedSuccess(''), 2500);
+                  }}
+                  className={cn(
+                    'p-3.5 rounded-xl border text-left flex flex-col justify-between transition-all relative overflow-hidden',
+                    theme === 'light'
+                      ? 'bg-amber-500/15 border-amber-500 shadow-md ring-1 ring-amber-500/50'
+                      : 'bg-slate-900/40 border-slate-800 hover:border-slate-700 hover:bg-slate-800/40'
+                  )}
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="p-2 rounded-lg bg-amber-500/20 border border-amber-500/30 text-amber-400">
+                      <Sun className="w-4 h-4" />
+                    </div>
+                    {theme === 'light' && (
+                      <span className="flex items-center gap-1 text-[11px] font-bold text-amber-400 bg-amber-500/15 px-2 py-0.5 rounded-full border border-amber-500/30">
+                        <Check className="w-3 h-3" /> Active
+                      </span>
+                    )}
+                  </div>
+                  <div>
+                    <h3 className="text-xs font-bold text-white">Light Theme</h3>
+                    <p className="text-[11px] text-slate-400 mt-0.5">Clean, crisp daylight palette with slate accents</p>
+                  </div>
+                </button>
+
+                {/* System Synchronized Option */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTheme('system');
+                    setSavedSuccess('Theme set to System Synchronized mode.');
+                    setTimeout(() => setSavedSuccess(''), 2500);
+                  }}
+                  className={cn(
+                    'p-3.5 rounded-xl border text-left flex flex-col justify-between transition-all relative overflow-hidden',
+                    theme === 'system'
+                      ? 'bg-blue-600/15 border-blue-500 shadow-md ring-1 ring-blue-500/50'
+                      : 'bg-slate-900/40 border-slate-800 hover:border-slate-700 hover:bg-slate-800/40'
+                  )}
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="p-2 rounded-lg bg-blue-500/20 border border-blue-500/30 text-blue-400">
+                      <Monitor className="w-4 h-4" />
+                    </div>
+                    {theme === 'system' && (
+                      <span className="flex items-center gap-1 text-[11px] font-bold text-blue-400 bg-blue-500/15 px-2 py-0.5 rounded-full border border-blue-500/30">
+                        <Check className="w-3 h-3" /> Active
+                      </span>
+                    )}
+                  </div>
+                  <div>
+                    <h3 className="text-xs font-bold text-white">System Auto</h3>
+                    <p className="text-[11px] text-slate-400 mt-0.5">Automatically syncs with your device display mode</p>
+                  </div>
+                </button>
+              </div>
+
+              <div className="p-3 rounded-xl bg-slate-900/50 border border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
+                <span>Currently active rendering engine:</span>
+                <span className="font-bold text-white font-mono uppercase bg-slate-800 px-2.5 py-0.5 rounded">
+                  {effectiveTheme} MODE
+                </span>
+              </div>
             </div>
           </div>
         )}

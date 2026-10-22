@@ -9,6 +9,21 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <title>CEHP — Academic Examination & AI Assistant Portal</title>
+    <script>
+      (function() {
+        try {
+          var theme = localStorage.getItem('cehp_theme') || 'dark';
+          var resolved = theme;
+          if (theme === 'system') {
+            resolved = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+          }
+          document.documentElement.classList.remove('light', 'dark');
+          document.documentElement.classList.add(resolved);
+          document.documentElement.setAttribute('data-theme', resolved);
+          document.documentElement.style.colorScheme = resolved;
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body class="bg-[#030712] text-slate-100 antialiased selection:bg-indigo-500 selection:text-white">
     <div id="root"></div>

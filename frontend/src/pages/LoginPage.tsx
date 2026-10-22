@@ -5,9 +5,10 @@ import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
   GraduationCap, Eye, EyeOff, Loader2, Sparkles, BookOpen,
-  Users, FileCheck2, ShieldCheck, ArrowRight, CheckCircle2
+  Users, FileCheck2, ShieldCheck, ArrowRight, CheckCircle2, Sun, Moon
 } from 'lucide-react';
 import { useAuth } from '../features/auth/AuthContext';
+import { useTheme } from '../features/theme/ThemeContext';
 import { cn } from '../lib/utils';
 
 const loginSchema = z.object({
@@ -106,6 +107,7 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [activeLoggingRole, setActiveLoggingRole] = useState<string | null>(null);
+  const { toggleTheme, effectiveTheme } = useTheme();
 
   const {
     register,
@@ -154,6 +156,28 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-[#030712] flex items-center justify-center p-4 py-8 relative overflow-hidden">
+      {/* Floating Theme Toggle in Top Right */}
+      <div className="absolute top-4 right-4 z-20">
+        <button
+          type="button"
+          onClick={toggleTheme}
+          className="px-3 py-1.5 rounded-xl bg-slate-900/80 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-white transition-all shadow-md flex items-center gap-2 text-xs font-semibold cursor-pointer"
+          title={`Switch to ${effectiveTheme === 'dark' ? 'Light' : 'Dark'} Mode`}
+        >
+          {effectiveTheme === 'dark' ? (
+            <>
+              <Sun className="w-4 h-4 text-amber-400" />
+              <span className="hidden sm:inline">Light Mode</span>
+            </>
+          ) : (
+            <>
+              <Moon className="w-4 h-4 text-indigo-400" />
+              <span className="hidden sm:inline">Dark Mode</span>
+            </>
+          )}
+        </button>
+      </div>
+
       {/* Background decoration */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-indigo-600/10 rounded-full blur-3xl" />
