@@ -7,6 +7,7 @@ import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, R
 import { studentApi } from '../../services/api';
 import { StudentAnalytics } from '../../types';
 import { useAuth } from '../../features/auth/AuthContext';
+import { useTheme } from '../../features/theme/ThemeContext';
 import { cn, gradeColor } from '../../lib/utils';
 import { Link } from 'react-router-dom';
 
@@ -89,6 +90,14 @@ const DEFAULT_ANALYTICS: StudentAnalytics = {
 
 export default function StudentDashboard() {
   const { user } = useAuth();
+  const { effectiveTheme } = useTheme();
+  const isDark = effectiveTheme === 'dark';
+  const gridStroke = isDark ? '#1e293b' : '#E2E8F0';
+  const axisStroke = isDark ? '#94a3b8' : '#475569';
+  const tooltipBg = isDark ? '#151E2F' : '#FFFFFF';
+  const tooltipBorder = isDark ? '#293548' : '#CBD5E1';
+  const tooltipText = isDark ? '#F1F5F9' : '#0F172A';
+
   const { data: analyticsRes, isLoading } = useQuery({
     queryKey: ['student-analytics'],
     queryFn: () => studentApi.getAnalytics(),
@@ -188,11 +197,11 @@ export default function StudentDashboard() {
 
           <ResponsiveContainer width="100%" height={220}>
             <LineChart data={analytics.semesterSGPAs}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-              <XAxis dataKey="semesterNumber" stroke="#94a3b8" tickFormatter={(v) => `Sem ${v}`} tick={{ fontSize: 11, fill: '#94a3b8' }} />
-              <YAxis domain={[0, 10]} stroke="#94a3b8" tick={{ fontSize: 11, fill: '#94a3b8' }} />
+              <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} />
+              <XAxis dataKey="semesterNumber" stroke={axisStroke} tickFormatter={(v) => `Sem ${v}`} tick={{ fontSize: 11, fill: axisStroke }} />
+              <YAxis domain={[0, 10]} stroke={axisStroke} tick={{ fontSize: 11, fill: axisStroke }} />
               <Tooltip
-                contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '0.75rem', color: '#f8fafc' }}
+                contentStyle={{ backgroundColor: tooltipBg, borderColor: tooltipBorder, borderRadius: '0.75rem', color: tooltipText, boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}
                 formatter={(v: number) => [v.toFixed(2), 'SGPA']}
                 labelFormatter={(l) => `Semester ${l}`}
               />
@@ -216,11 +225,11 @@ export default function StudentDashboard() {
               name: r.subjectId?.code || r.subject?.code || 'SUB',
               marks: r.maximumMarks ? Math.round((r.totalMarks / r.maximumMarks) * 100) : r.totalMarks || 85,
             }))}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-              <XAxis dataKey="name" stroke="#94a3b8" tick={{ fontSize: 11, fill: '#94a3b8' }} />
-              <YAxis domain={[0, 100]} stroke="#94a3b8" tick={{ fontSize: 11, fill: '#94a3b8' }} />
+              <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} />
+              <XAxis dataKey="name" stroke={axisStroke} tick={{ fontSize: 11, fill: axisStroke }} />
+              <YAxis domain={[0, 100]} stroke={axisStroke} tick={{ fontSize: 11, fill: axisStroke }} />
               <Tooltip
-                contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '0.75rem', color: '#f8fafc' }}
+                contentStyle={{ backgroundColor: tooltipBg, borderColor: tooltipBorder, borderRadius: '0.75rem', color: tooltipText, boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}
                 formatter={(v: number) => [`${v}%`, 'Total Marks']}
               />
               <Bar dataKey="marks" fill="#10b981" radius={[6, 6, 0, 0]} />
