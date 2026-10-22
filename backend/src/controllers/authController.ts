@@ -49,19 +49,29 @@ export async function login(req: Request, res: Response, next: NextFunction): Pr
 
     // Standby/In-Memory Fallback if MongoDB is not connected
     if (mongoose.connection.readyState !== 1) {
+      const dynamicRole: UserRole = (
+        lowerEmail.includes('admin') ? 'ADMIN' :
+        (lowerEmail.includes('hod') || lowerEmail.includes('head')) ? 'HOD' :
+        (lowerEmail.includes('exam') || lowerEmail.includes('coe') || lowerEmail.includes('controller')) ? 'EXAM_OFFICER' :
+        lowerEmail.includes('faculty') ? 'FACULTY' :
+        'STUDENT'
+      );
+
       const mockUser = MOCK_USERS[lowerEmail] || {
         id: 'usr_dynamic',
         _id: 'usr_dynamic',
         name: lowerEmail.split('@')[0].toUpperCase(),
         email: lowerEmail,
-        role: (lowerEmail.includes('admin') ? 'ADMIN' : lowerEmail.includes('faculty') ? 'FACULTY' : 'STUDENT') as UserRole,
+        role: dynamicRole,
         accountStatus: 'ACTIVE',
-        studentProfile: {
+        assignedDepartmentIds: ['dept_cse'],
+        department: 'Computer Science and Engineering',
+        studentProfile: dynamicRole === 'STUDENT' ? {
           registrationNumber: 'REG-' + Math.floor(100000 + Math.random() * 900000),
           currentSemester: 5,
           cgpa: 8.45,
           totalCreditsEarned: 96,
-        },
+        } : undefined,
       };
 
       const accessToken = generateAccessToken(String(mockUser.id || mockUser._id), mockUser.role, mockUser.email);
@@ -76,6 +86,8 @@ export async function login(req: Request, res: Response, next: NextFunction): Pr
           email: mockUser.email,
           role: mockUser.role,
           accountStatus: mockUser.accountStatus,
+          assignedDepartmentIds: mockUser.assignedDepartmentIds || ['dept_cse'],
+          department: mockUser.department,
           studentProfile: mockUser.studentProfile,
         },
         accessToken,
@@ -132,6 +144,7 @@ export async function login(req: Request, res: Response, next: NextFunction): Pr
         email: user.email,
         role: user.role,
         accountStatus: user.accountStatus,
+        assignedDepartmentIds: user.assignedDepartmentIds,
       },
       accessToken,
     });
@@ -157,6 +170,8 @@ export async function getMe(req: AuthRequest, res: Response, next: NextFunction)
         email: email,
         role: req.userRole || 'STUDENT',
         accountStatus: 'ACTIVE',
+        assignedDepartmentIds: ['dept_cse'],
+        department: 'Computer Science and Engineering',
         studentProfile: {
           registrationNumber: 'CSE2023001',
           currentSemester: 5,
@@ -170,7 +185,8 @@ export async function getMe(req: AuthRequest, res: Response, next: NextFunction)
 
     const user = await User.findById(req.userId)
       .populate('studentProfileId')
-      .populate('facultyProfileId');
+      .populate('facultyProfileId')
+      .populate('assignedDepartmentIds');
 
     if (!user) {
       return next(new AppError('User not found', 404));
@@ -184,6 +200,7 @@ export async function getMe(req: AuthRequest, res: Response, next: NextFunction)
         email: user.email,
         role: user.role,
         accountStatus: user.accountStatus,
+        assignedDepartmentIds: user.assignedDepartmentIds,
         studentProfile: user.studentProfileId,
         facultyProfile: user.facultyProfileId,
         lastLoginAt: user.lastLoginAt,

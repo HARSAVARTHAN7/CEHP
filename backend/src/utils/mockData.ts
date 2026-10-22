@@ -30,6 +30,8 @@ export const MOCK_USERS: Record<string, any> = {
     email: 'hod.cse@cehp.edu',
     role: 'HOD',
     accountStatus: 'ACTIVE',
+    assignedDepartmentIds: ['dept_cse'],
+    department: 'Computer Science and Engineering',
   },
   'faculty1@cehp.edu': {
     id: 'usr_fac1',

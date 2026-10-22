@@ -92,10 +92,15 @@ export function UsersPage() {
     setIsEditModalOpen(true);
   };
 
+  const handleCreateClick = () => {
+    setSelectedUser(null);
+    setIsEditModalOpen(true);
+  };
+
   const handleUserUpdated = (updatedUser: User) => {
     queryClient.invalidateQueries({ queryKey: ['usersList'] });
     refetch();
-    setToastMessage(`User "${updatedUser.name}" credentials and status updated successfully.`);
+    setToastMessage(`User "${updatedUser.name}" saved successfully in institutional directory.`);
     setTimeout(() => setToastMessage(null), 4000);
   };
 
@@ -134,6 +139,16 @@ export function UsersPage() {
           <p className="text-slate-300 text-sm mt-1">
             Manage institutional identities, role permissions, authentication credentials, and active account statuses.
           </p>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleCreateClick}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-semibold text-xs transition-all shadow-lg shadow-indigo-600/30 active:scale-95 whitespace-nowrap cursor-pointer"
+          >
+            <UserPlus className="w-4 h-4" />
+            Provision New User
+          </button>
         </div>
       </div>
 

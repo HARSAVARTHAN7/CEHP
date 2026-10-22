@@ -38,7 +38,8 @@ const navItems: NavItem[] = [
   { label: 'Subjects', path: '/subjects', icon: BookOpen, roles: ['ADMIN', 'EXAM_OFFICER'] },
   { label: 'Semesters', path: '/semesters', icon: LayoutDashboard, roles: ['ADMIN', 'EXAM_OFFICER'] },
   { label: 'Examinations', path: '/examinations', icon: ClipboardList, roles: ['ADMIN', 'EXAM_OFFICER'] },
-  { label: 'Results', path: '/results', icon: BarChart3, roles: ['ADMIN', 'EXAM_OFFICER', 'HOD'] },
+  { label: 'Publish Results', path: '/results', icon: BarChart3, roles: ['ADMIN', 'EXAM_OFFICER'] },
+  { label: 'Dept Results', path: '/department/results', icon: BarChart3, roles: ['HOD'] },
   { label: 'Audit Logs', path: '/audit-logs', icon: Shield, roles: ['ADMIN'] },
   { label: 'Users', path: '/users', icon: Users, roles: ['ADMIN'] },
   // Common

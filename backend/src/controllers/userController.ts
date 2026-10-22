@@ -90,6 +90,17 @@ export async function createUser(req: AuthRequest, res: Response, next: NextFunc
       assignedDepartmentIds: departmentId ? [departmentId] : [],
     });
 
+    try {
+      await AuditLog.create({
+        actorUserId: req.userId,
+        action: 'USER_CREATED',
+        entityType: 'User',
+        entityId: user._id,
+        reason: `Created user ${user.email} with role ${user.role}`,
+        ipAddress: req.ip,
+      });
+    } catch {}
+
     res.status(201).json({ success: true, data: user });
   } catch (err) {
     next(err);
@@ -118,6 +129,18 @@ export async function updateUser(req: AuthRequest, res: Response, next: NextFunc
 
     const user = await User.findByIdAndUpdate(req.params.id, updates, { new: true });
     if (!user) return next(new AppError('User not found', 404));
+
+    try {
+      await AuditLog.create({
+        actorUserId: req.userId,
+        action: 'USER_UPDATED',
+        entityType: 'User',
+        entityId: user._id,
+        reason: req.body.accountStatus ? `Account status updated to ${req.body.accountStatus}` : 'User profile credentials updated',
+        afterSnapshot: { role: user.role, accountStatus: user.accountStatus, name: user.name, email: user.email },
+        ipAddress: req.ip,
+      });
+    } catch {}
 
     // Also sync in role collections if present
     const roleCollectionMap: Record<string, string> = {
@@ -181,6 +204,18 @@ export async function deleteUser(req: AuthRequest, res: Response, next: NextFunc
     }
 
     await User.findByIdAndDelete(req.params.id);
+
+    try {
+      await AuditLog.create({
+        actorUserId: req.userId,
+        action: 'USER_DELETED',
+        entityType: 'User',
+        entityId: user._id,
+        reason: `User ${user.email} removed from institutional registry`,
+        beforeSnapshot: { role: user.role, accountStatus: user.accountStatus, name: user.name, email: user.email },
+        ipAddress: req.ip,
+      });
+    } catch {}
 
     res.json({ success: true, message: 'User deleted successfully' });
   } catch (err) {

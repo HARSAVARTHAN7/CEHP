@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Building2, BookOpen, Layers, PlusCircle, CheckCircle2,
-  Calendar, Award, Hash, ArrowRight, BookPlus, UserCheck
+  Calendar, Award, Hash, ArrowRight, BookPlus, UserCheck, Trash2
 } from 'lucide-react';
 import { academicApi } from '../../services/api';
 import { cn } from '../../lib/utils';
 import { AddCourseModal } from '../../components/AddCourseModal';
+import { ConfirmModal } from '../../components/ConfirmModal';
 
 const DEFAULT_DEPTS = [
   { _id: 'd1', code: 'CSE', name: 'Computer Science and Engineering', status: 'ACTIVE' },
@@ -33,6 +34,7 @@ const DEFAULT_SEMESTERS = [
 
 export function AcademicManagementPage() {
   const location = useLocation();
+  const queryClient = useQueryClient();
 
   const getInitialTab = (): 'departments' | 'subjects' | 'semesters' => {
     if (location.pathname === '/departments') return 'departments';
@@ -43,6 +45,9 @@ export function AcademicManagementPage() {
   const [activeTab, setActiveTab] = useState<'departments' | 'subjects' | 'semesters'>(getInitialTab);
   const [isAddCourseOpen, setIsAddCourseOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const [subjectToDelete, setSubjectToDelete] = useState<any | null>(null);
+  const [deptToDelete, setDeptToDelete] = useState<any | null>(null);
 
   useEffect(() => {
     if (location.pathname === '/departments') {
@@ -89,6 +94,34 @@ export function AcademicManagementPage() {
       }
     },
   });
+
+  const handleDeleteSubject = async () => {
+    if (!subjectToDelete) return;
+    try {
+      await academicApi.deleteSubject(subjectToDelete._id);
+      queryClient.invalidateQueries({ queryKey: ['subjects'] });
+      setToastMessage(`Subject "${subjectToDelete.code} - ${subjectToDelete.name}" removed from curriculum.`);
+      setTimeout(() => setToastMessage(null), 4000);
+    } catch (err: any) {
+      setToastMessage(`Failed to delete subject: ${err?.message || 'Error'}`);
+    } finally {
+      setSubjectToDelete(null);
+    }
+  };
+
+  const handleDeleteDepartment = async () => {
+    if (!deptToDelete) return;
+    try {
+      await academicApi.deleteDepartment(deptToDelete._id);
+      queryClient.invalidateQueries({ queryKey: ['departments'] });
+      setToastMessage(`Department "${deptToDelete.name}" removed from registry.`);
+      setTimeout(() => setToastMessage(null), 4000);
+    } catch (err: any) {
+      setToastMessage(`Failed to delete department: ${err?.message || 'Error'}`);
+    } finally {
+      setDeptToDelete(null);
+    }
+  };
 
   const depts = Array.isArray(deptsData) && deptsData.length > 0 ? deptsData : DEFAULT_DEPTS;
   const subjects = Array.isArray(subjectsData) && subjectsData.length > 0 ? subjectsData : DEFAULT_SUBJECTS;
@@ -183,6 +216,7 @@ export function AcademicManagementPage() {
                   <th className="py-3.5 px-4 text-center">Type</th>
                   <th className="py-3.5 px-4 text-center">Max Marks</th>
                   <th className="py-3.5 px-4 text-center">Status</th>
+                  <th className="py-3.5 px-4 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/80 text-sm">
@@ -214,6 +248,15 @@ export function AcademicManagementPage() {
                           Active
                         </span>
                       </td>
+                      <td className="py-3.5 px-4 text-right">
+                        <button
+                          onClick={() => setSubjectToDelete(sub)}
+                          className="p-1.5 rounded-lg text-rose-400 hover:text-white hover:bg-rose-950/60 border border-transparent hover:border-rose-800 transition-colors cursor-pointer"
+                          title="Remove Subject"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </td>
                     </tr>
                   );
                 })}
@@ -226,19 +269,32 @@ export function AcademicManagementPage() {
       {activeTab === 'departments' && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {depts.map((d: any) => (
-            <div key={d._id} className="p-5 rounded-2xl bg-[#0a0f1d] border border-slate-800 shadow-xl space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="px-3 py-1 rounded-lg bg-indigo-950 text-indigo-300 border border-indigo-800/60 font-mono text-xs font-bold">
-                  {d.code}
-                </span>
-                <span className="text-xs px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 font-semibold border border-emerald-500/30">
-                  {d.status || 'ACTIVE'}
-                </span>
+            <div key={d._id} className="p-5 rounded-2xl bg-[#0a0f1d] border border-slate-800 shadow-xl space-y-3 flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between">
+                  <span className="px-3 py-1 rounded-lg bg-indigo-950 text-indigo-300 border border-indigo-800/60 font-mono text-xs font-bold">
+                    {d.code}
+                  </span>
+                  <span className="text-xs px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 font-semibold border border-emerald-500/30">
+                    {d.status || 'ACTIVE'}
+                  </span>
+                </div>
+                <h3 className="text-lg font-bold text-white mt-2">{d.name}</h3>
+                <p className="text-xs text-slate-400 mt-1">
+                  Department established under faculty council. Code: {d.code}
+                </p>
               </div>
-              <h3 className="text-lg font-bold text-white">{d.name}</h3>
-              <p className="text-xs text-slate-400">
-                Department established under faculty council. Code: {d.code}
-              </p>
+
+              <div className="flex items-center justify-between pt-3 border-t border-slate-800/80">
+                <span className="text-[11px] text-slate-400">Programs: Active</span>
+                <button
+                  onClick={() => setDeptToDelete(d)}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold text-rose-400 hover:text-white hover:bg-rose-950/60 border border-rose-900/40 transition-colors cursor-pointer"
+                >
+                  <Trash2 className="w-3 h-3" />
+                  Delete
+                </button>
+              </div>
             </div>
           ))}
         </div>
@@ -258,6 +314,7 @@ export function AcademicManagementPage() {
           ))}
         </div>
       )}
+
       {/* Add Course Modal */}
       <AddCourseModal
         isOpen={isAddCourseOpen}
@@ -266,6 +323,28 @@ export function AcademicManagementPage() {
           setToastMessage(`Course "${created.code} - ${created.name}" successfully added to academic curriculum.`);
           setTimeout(() => setToastMessage(null), 5000);
         }}
+      />
+
+      {/* Confirm Subject Delete */}
+      <ConfirmModal
+        isOpen={!!subjectToDelete}
+        title={`Delete Subject: ${subjectToDelete?.code}?`}
+        message={`Are you sure you want to remove "${subjectToDelete?.name}" (${subjectToDelete?.code}) from the curriculum? This will delete the subject from course catalog.`}
+        confirmLabel="Yes, Remove Subject"
+        cancelLabel="Cancel"
+        onConfirm={handleDeleteSubject}
+        onCancel={() => setSubjectToDelete(null)}
+      />
+
+      {/* Confirm Department Delete */}
+      <ConfirmModal
+        isOpen={!!deptToDelete}
+        title={`Delete Department: ${deptToDelete?.name}?`}
+        message={`Are you sure you want to remove department "${deptToDelete?.name}" (${deptToDelete?.code})? This will archive the department structure.`}
+        confirmLabel="Yes, Remove Department"
+        cancelLabel="Cancel"
+        onConfirm={handleDeleteDepartment}
+        onCancel={() => setDeptToDelete(null)}
       />
     </div>
   );

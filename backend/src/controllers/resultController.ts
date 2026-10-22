@@ -246,11 +246,32 @@ export async function submitResult(req: AuthRequest, res: Response, next: NextFu
 export async function approveResult(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
   try {
     if (mongoose.connection.readyState !== 1) {
-      res.json({ success: true, message: 'Result approved by Examination Officer' });
+      res.json({
+        success: true,
+        message: 'Department result approved successfully (pending official COE/Admin publication)',
+        data: { _id: req.params.id, publicationStatus: 'APPROVED' }
+      });
       return;
     }
-    const result = await ResultRecord.findByIdAndUpdate(req.params.id, { publicationStatus: 'APPROVED' }, { new: true });
-    res.json({ success: true, data: result });
+    const result = await ResultRecord.findByIdAndUpdate(
+      req.params.id,
+      { publicationStatus: 'APPROVED', approvedBy: req.userId, approvedAt: new Date() },
+      { new: true }
+    );
+    if (!result) return next(new AppError('Result record not found', 404));
+
+    try {
+      await AuditLog.create({
+        actorUserId: req.userId,
+        action: 'RESULT_APPROVED',
+        entityType: 'ResultRecord',
+        entityId: result._id,
+        reason: req.body?.reason || 'Department examination result reviewed and approved',
+        ipAddress: req.ip,
+      });
+    } catch {}
+
+    res.json({ success: true, message: 'Result approved successfully', data: result });
   } catch (err) {
     next(err);
   }
@@ -259,34 +280,223 @@ export async function approveResult(req: AuthRequest, res: Response, next: NextF
 // POST /api/v1/results/:id/publish
 export async function publishResult(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
   try {
+    // Non-negotiable publication policy: Only ADMIN and EXAM_OFFICER can publish. HOD is strictly forbidden.
+    if (req.userRole !== 'ADMIN' && req.userRole !== 'EXAM_OFFICER') {
+      return next(new AppError('Forbidden: Only Administrator and Examination Officer can publish examination results. HOD is strictly prohibited from publishing results.', 403));
+    }
+
     if (mongoose.connection.readyState !== 1) {
-      res.json({ success: true, message: 'Result published officially' });
+      res.json({
+        success: true,
+        message: 'Result published officially to student portals',
+        data: { _id: req.params.id, publicationStatus: 'PUBLISHED' }
+      });
       return;
     }
-    const result = await ResultRecord.findByIdAndUpdate(req.params.id, { publicationStatus: 'PUBLISHED', publishedAt: new Date() }, { new: true });
-    res.json({ success: true, data: result });
+    const result = await ResultRecord.findByIdAndUpdate(
+      req.params.id,
+      { publicationStatus: 'PUBLISHED', publishedAt: new Date() },
+      { new: true }
+    );
+    if (!result) return next(new AppError('Result record not found', 404));
+
+    try {
+      await AuditLog.create({
+        actorUserId: req.userId,
+        action: 'RESULT_PUBLISHED',
+        entityType: 'ResultRecord',
+        entityId: result._id,
+        ipAddress: req.ip,
+      });
+    } catch {}
+
+    res.json({ success: true, message: 'Result published officially', data: result });
   } catch (err) {
     next(err);
   }
 }
 
+// POST /api/v1/examinations/:examinationId/publish-results
 export async function publishExaminationResult(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
   try {
+    // Non-negotiable publication policy: Only ADMIN and EXAM_OFFICER can publish. HOD is strictly forbidden.
+    if (req.userRole !== 'ADMIN' && req.userRole !== 'EXAM_OFFICER') {
+      return next(new AppError('Forbidden: Only Administrator and Examination Officer can publish examination results. HOD is strictly prohibited from publishing results.', 403));
+    }
+
+    const examId = req.params.examinationId || req.params.id;
+
     if (mongoose.connection.readyState !== 1) {
-      res.json({ success: true, message: 'Examination results successfully published' });
+      res.json({
+        success: true,
+        message: 'Examination cycle results successfully published to student portals',
+      });
       return;
     }
-    await ResultRecord.updateMany(
-      { examinationId: req.params.id, publicationStatus: 'APPROVED' },
+
+    const updateRes = await ResultRecord.updateMany(
+      { examinationId: examId, publicationStatus: { $in: ['APPROVED', 'SUBMITTED', 'DRAFT'] } },
       { publicationStatus: 'PUBLISHED', publishedAt: new Date() }
     );
-    res.json({ success: true, message: 'Examination results published successfully' });
+
+    try {
+      if (mongoose.Types.ObjectId.isValid(examId)) {
+        await AuditLog.create({
+          actorUserId: req.userId,
+          action: 'EXAM_RESULTS_PUBLISHED',
+          entityType: 'Examination',
+          entityId: new mongoose.Types.ObjectId(examId),
+          reason: `Published ${updateRes.modifiedCount} records for examination cycle ${examId}`,
+          ipAddress: req.ip,
+        });
+      }
+    } catch {}
+
+    res.json({
+      success: true,
+      message: 'Examination results published successfully',
+      publishedCount: updateRes.modifiedCount,
+    });
   } catch (err) {
     next(err);
   }
 }
 
 export const publishExaminationResults = publishExaminationResult;
+
+// POST /api/v1/results/:id/correct - Audited correction workflow for Administrator & Exam Officer
+export async function correctResult(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { reason, internalMarks, externalMarks } = req.body;
+    if (!reason || String(reason).trim().length === 0) {
+      return next(new AppError('Correction reason is mandatory for auditing academic adjustments.', 400));
+    }
+
+    const targetId = req.params.id;
+    const defaultThresholds = getDefaultGradeThresholds();
+
+    if (mongoose.connection.readyState !== 1) {
+      const mockInternal = Number(internalMarks ?? 38);
+      const mockExternal = Number(externalMarks ?? 54);
+      const totalMarks = mockInternal + mockExternal;
+      const maxMarks = 100;
+      const percentage = (totalMarks / maxMarks) * 100;
+      const gradeInfo = calculateGrade(percentage, defaultThresholds);
+      const resultStatus = totalMarks >= 50 ? 'PASS' : 'FAIL';
+
+      res.json({
+        success: true,
+        message: 'Result correction applied and audited successfully',
+        data: {
+          _id: targetId,
+          internalMarks: mockInternal,
+          externalMarks: mockExternal,
+          totalMarks,
+          grade: gradeInfo.grade,
+          gradePoint: gradeInfo.gradePoint,
+          resultStatus,
+          isCorrection: true,
+          correctionReason: reason.trim(),
+          correctedAt: new Date(),
+        },
+      });
+      return;
+    }
+
+    const result = await ResultRecord.findById(targetId);
+    if (!result) return next(new AppError('Result record not found', 404));
+
+    const beforeSnapshot = {
+      internalMarks: result.internalMarks,
+      externalMarks: result.externalMarks,
+      totalMarks: result.totalMarks,
+      grade: result.grade,
+      gradePoint: result.gradePoint,
+      resultStatus: result.resultStatus,
+      publicationStatus: result.publicationStatus,
+    };
+
+    const newInternal = internalMarks !== undefined ? Number(internalMarks) : result.internalMarks;
+    const newExternal = externalMarks !== undefined ? Number(externalMarks) : result.externalMarks;
+    const totalMarks = newInternal + newExternal;
+    const maxMarks = result.maximumMarks || 100;
+    const percentage = (totalMarks / maxMarks) * 100;
+
+    const gradeInfo = calculateGrade(percentage, defaultThresholds);
+    const fakeRule = { minPassPercentage: 50, sgpaExcludeFailedSubjects: false } as any;
+    const status = determineResultStatus(totalMarks, maxMarks, newInternal, newExternal, fakeRule);
+
+    result.internalMarks = newInternal;
+    result.externalMarks = newExternal;
+    result.totalMarks = totalMarks;
+    result.grade = gradeInfo.grade;
+    result.gradePoint = gradeInfo.gradePoint;
+    result.resultStatus = status;
+    result.isCorrection = true;
+    result.correctionReason = reason.trim();
+    result.correctedBy = req.userId as any;
+    result.correctedAt = new Date();
+    await result.save();
+
+    const afterSnapshot = {
+      internalMarks: result.internalMarks,
+      externalMarks: result.externalMarks,
+      totalMarks: result.totalMarks,
+      grade: result.grade,
+      gradePoint: result.gradePoint,
+      resultStatus: result.resultStatus,
+      publicationStatus: result.publicationStatus,
+    };
+
+    try {
+      await AuditLog.create({
+        actorUserId: req.userId,
+        action: 'RESULT_CORRECTION',
+        entityType: 'ResultRecord',
+        entityId: result._id,
+        reason: reason.trim(),
+        beforeSnapshot,
+        afterSnapshot,
+        ipAddress: req.ip,
+      });
+    } catch {}
+
+    res.json({
+      success: true,
+      message: 'Result corrected and audited successfully',
+      data: result,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// DELETE /api/v1/results/:id - Admin result deletion
+export async function deleteResult(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      res.json({ success: true, message: 'Result record deleted successfully' });
+      return;
+    }
+    const result = await ResultRecord.findByIdAndDelete(req.params.id);
+    if (!result) return next(new AppError('Result record not found', 404));
+
+    try {
+      await AuditLog.create({
+        actorUserId: req.userId,
+        action: 'RESULT_DELETED',
+        entityType: 'ResultRecord',
+        entityId: result._id,
+        beforeSnapshot: result.toObject(),
+        ipAddress: req.ip,
+      });
+    } catch {}
+
+    res.json({ success: true, message: 'Result record deleted successfully' });
+  } catch (err) {
+    next(err);
+  }
+}
 
 // GET /api/v1/students/me/transcript/pdf or GET /api/v1/results/transcript/:studentId/pdf
 export async function downloadTranscriptPDF(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {

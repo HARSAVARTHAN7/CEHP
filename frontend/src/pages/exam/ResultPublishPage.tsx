@@ -8,12 +8,37 @@ import { Link } from 'react-router-dom';
 import { academicApi, resultApi } from '../../services/api';
 import { cn } from '../../lib/utils';
 
+import { useAuth } from '../../features/auth/AuthContext';
+
 export function ResultPublishPage() {
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   const [selectedExamId, setSelectedExamId] = useState<string>('');
   const [isPublishing, setIsPublishing] = useState(false);
   const [publishSuccess, setPublishSuccess] = useState(false);
   const [publishError, setPublishError] = useState('');
+
+  if (user && user.role !== 'ADMIN' && user.role !== 'EXAM_OFFICER') {
+    return (
+      <div className="p-8 max-w-2xl mx-auto rounded-2xl bg-[#0a0f1d] border border-rose-900/50 shadow-2xl space-y-4 text-center mt-12">
+        <div className="w-12 h-12 rounded-2xl bg-rose-500/20 border border-rose-500/40 text-rose-400 flex items-center justify-center mx-auto">
+          <AlertTriangle className="w-6 h-6" />
+        </div>
+        <h2 className="text-xl font-bold text-white">403 Forbidden: Publication Authority Required</h2>
+        <p className="text-xs text-slate-300 leading-relaxed max-w-lg mx-auto">
+          In strict compliance with institutional examination bylaws, <strong>only the Controller of Examinations (Exam Officer) and Central Administrator</strong> possess authorization to publish examination results. Head of Department accounts may review and approve departmental marks, but cannot trigger official student publication.
+        </p>
+        <div className="pt-2">
+          <Link
+            to={user.role === 'HOD' ? '/department/results' : '/dashboard'}
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs transition-all shadow-lg"
+          >
+            Return to Authorized Console
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   const DEFAULT_EXAMINATIONS = [
     { _id: 'exam_2025_even', title: 'End Semester Regular Examination (Even Sem)', session: 'May/June 2025', status: 'ACTIVE' },

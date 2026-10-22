@@ -72,21 +72,28 @@ export const departmentApi = {
   list: () => api.get('/departments'),
   create: (data: Record<string, unknown>) => api.post('/departments', data),
   update: (id: string, data: Record<string, unknown>) => api.patch(`/departments/${id}`, data),
+  delete: (id: string) => api.delete(`/departments/${id}`),
 };
 
 export const programApi = {
   list: (departmentId?: string) => api.get('/programs', { params: { departmentId } }),
   create: (data: Record<string, unknown>) => api.post('/programs', data),
+  update: (id: string, data: Record<string, unknown>) => api.patch(`/programs/${id}`, data),
+  delete: (id: string) => api.delete(`/programs/${id}`),
 };
 
 export const subjectApi = {
   list: (params?: { programId?: string; semester?: number }) => api.get('/subjects', { params }),
   create: (data: Record<string, unknown>) => api.post('/subjects', data),
+  update: (id: string, data: Record<string, unknown>) => api.patch(`/subjects/${id}`, data),
+  delete: (id: string) => api.delete(`/subjects/${id}`),
 };
 
 export const semesterApi = {
   list: (programId?: string) => api.get('/semesters', { params: { programId } }),
   create: (data: Record<string, unknown>) => api.post('/semesters', data),
+  update: (id: string, data: Record<string, unknown>) => api.patch(`/semesters/${id}`, data),
+  delete: (id: string) => api.delete(`/semesters/${id}`),
 };
 
 export const examinationApi = {
@@ -94,6 +101,7 @@ export const examinationApi = {
   get: (id: string) => api.get(`/examinations/${id}`),
   create: (data: Record<string, unknown>) => api.post('/examinations', data),
   update: (id: string, data: Record<string, unknown>) => api.patch(`/examinations/${id}`, data),
+  delete: (id: string) => api.delete(`/examinations/${id}`),
   publishResults: (examinationId: string) =>
     api.post(`/examinations/${examinationId}/publish-results`),
 };
@@ -102,12 +110,18 @@ export const examinationApi = {
 export const academicApi = {
   listDepartments: () => departmentApi.list(),
   createDepartment: (d: Record<string, unknown>) => departmentApi.create(d),
+  deleteDepartment: (id: string) => departmentApi.delete(id),
   listPrograms: (deptId?: string) => programApi.list(deptId),
+  createProgram: (d: Record<string, unknown>) => programApi.create(d),
+  deleteProgram: (id: string) => programApi.delete(id),
   listSubjects: (p?: any) => subjectApi.list(p),
   createSubject: (d: Record<string, unknown>) => subjectApi.create(d),
+  deleteSubject: (id: string) => subjectApi.delete(id),
   listSemesters: (p?: any) => semesterApi.list(p),
   createSemester: (d: Record<string, unknown>) => semesterApi.create(d),
+  deleteSemester: (id: string) => semesterApi.delete(id),
   listExaminations: (p?: any) => examinationApi.list(p),
+  deleteExamination: (id: string) => examinationApi.delete(id),
   publishExam: (id: string) => examinationApi.publishResults(id),
 };
 
@@ -120,6 +134,9 @@ export const resultApi = {
   downloadTranscriptPDF: () => api.get('/students/me/transcript/pdf', { responseType: 'blob' }),
   create: (data: Record<string, unknown>) => api.post('/results', data),
   update: (id: string, data: Record<string, unknown>) => api.patch(`/results/${id}`, data),
+  delete: (id: string) => api.delete(`/results/${id}`),
+  correct: (id: string, data: { reason: string; internalMarks?: number; externalMarks?: number }) =>
+    api.post(`/results/${id}/correct`, data),
   submit: (id: string) => api.post(`/results/${id}/submit`),
   approve: (id: string) => api.post(`/results/${id}/approve`),
   approveResult: (id: string) => api.post(`/results/${id}/approve`),

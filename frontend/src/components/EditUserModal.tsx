@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
-  X, UserCog, Mail, Shield, Key, Ban, CheckCircle2,
+  X, UserCog, UserPlus, Mail, Shield, Key, Ban, CheckCircle2,
   Trash2, Eye, EyeOff, Save, AlertTriangle, UserCheck
 } from 'lucide-react';
 import { userApi } from '../services/api';
@@ -12,7 +12,7 @@ interface EditUserModalProps {
   isOpen: boolean;
   user: User | null;
   onClose: () => void;
-  onSaveSuccess: (updatedUser: User) => void;
+  onSaveSuccess: (user: User) => void;
   onDeleteSuccess: (userId: string) => void;
 }
 
@@ -23,6 +23,8 @@ export function EditUserModal({
   onSaveSuccess,
   onDeleteSuccess,
 }: EditUserModalProps) {
+  const isCreateMode = !user;
+
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<UserRole>('STUDENT');
@@ -52,14 +54,22 @@ export function EditUserModal({
         user.studentProfile?.registerNumber ||
         ''
       );
-      setErrorMsg(null);
-      setSuccessMsg(null);
+    } else {
+      setName('');
+      setEmail('');
+      setRole('STUDENT');
+      setAccountStatus('ACTIVE');
+      setNewPassword('Demo@1234');
+      setShowPassword(true);
+      setRegNumber('');
     }
+    setErrorMsg(null);
+    setSuccessMsg(null);
   }, [user, isOpen]);
 
-  if (!isOpen || !user) return null;
+  if (!isOpen) return null;
 
-  const userId = user.id || user._id || '';
+  const userId = user?.id || user?._id || '';
 
   const handleToggleBlock = () => {
     if (accountStatus === 'ACTIVE') {
@@ -84,12 +94,33 @@ export function EditUserModal({
     setSuccessMsg(null);
 
     try {
+      if (!name.trim()) throw new Error('User name is required.');
+      if (!email.trim()) throw new Error('Email address is required.');
+
       const payload: Record<string, any> = {
         name: name.trim(),
-        email: email.trim(),
+        email: email.trim().toLowerCase(),
         role,
         accountStatus,
       };
+
+      if (isCreateMode) {
+        if (!newPassword.trim()) throw new Error('Password is required when creating a new user.');
+        payload.password = newPassword.trim();
+        if (role === 'STUDENT' && regNumber.trim()) {
+          payload.registrationNumber = regNumber.trim();
+        }
+        const res = await userApi.create(payload);
+        const createdUser: User = res.data?.data || {
+          id: 'usr_' + Date.now(),
+          _id: 'usr_' + Date.now(),
+          ...payload,
+        };
+        setSuccessMsg('User identity provisioned successfully in institutional registry!');
+        onSaveSuccess(createdUser);
+        setTimeout(() => onClose(), 700);
+        return;
+      }
 
       if (newPassword.trim().length > 0) {
         payload.password = newPassword.trim();
@@ -111,7 +142,7 @@ export function EditUserModal({
         onClose();
       }, 700);
     } catch (err: any) {
-      setErrorMsg(err.response?.data?.message || 'Failed to update user. Please try again.');
+      setErrorMsg(err.response?.data?.message || err.message || 'Failed to save user. Please try again.');
     } finally {
       setIsSaving(false);
     }
@@ -147,14 +178,16 @@ export function EditUserModal({
           <div className="flex items-start justify-between border-b border-slate-800/80 pb-4">
             <div className="flex items-center gap-3">
               <div className="p-2.5 rounded-xl bg-indigo-500/15 border border-indigo-500/30 text-indigo-400">
-                <UserCog className="w-5 h-5" />
+                {isCreateMode ? <UserPlus className="w-5 h-5" /> : <UserCog className="w-5 h-5" />}
               </div>
               <div>
                 <h2 className="text-lg font-bold text-white tracking-tight">
-                  Edit User Credentials & Access
+                  {isCreateMode ? 'Provision New User Identity' : 'Edit User Credentials & Access'}
                 </h2>
                 <p className="text-xs text-slate-400">
-                  Update identity details, authentication credentials, and permissions.
+                  {isCreateMode
+                    ? 'Add a new student, faculty, HOD, or officer to the institutional registry.'
+                    : 'Update identity details, authentication credentials, and permissions.'}
                 </p>
               </div>
             </div>
@@ -180,52 +213,54 @@ export function EditUserModal({
             </div>
           )}
 
-          {/* Quick Status & Block Status Banner */}
-          <div
-            className={cn(
-              'p-3.5 rounded-xl border flex items-center justify-between gap-3 transition-colors',
-              isBlocked
-                ? 'bg-rose-950/40 border-rose-800/70 text-rose-200'
-                : accountStatus === 'INACTIVE'
-                ? 'bg-amber-950/40 border-amber-800/70 text-amber-200'
-                : 'bg-emerald-950/40 border-emerald-800/70 text-emerald-200'
-            )}
-          >
-            <div className="flex items-center gap-2.5">
-              {isBlocked ? (
-                <Ban className="w-5 h-5 text-rose-400 shrink-0" />
-              ) : accountStatus === 'INACTIVE' ? (
-                <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0" />
-              ) : (
-                <UserCheck className="w-5 h-5 text-emerald-400 shrink-0" />
-              )}
-              <div>
-                <div className="text-xs font-bold uppercase tracking-wider">
-                  Status: {isBlocked ? 'Blocked (Suspended)' : accountStatus}
-                </div>
-                <div className="text-[11px] opacity-80 mt-0.5">
-                  {isBlocked
-                    ? 'User login is blocked. Cannot authenticate.'
-                    : accountStatus === 'INACTIVE'
-                    ? 'Account marked inactive.'
-                    : 'User has active institutional access.'}
-                </div>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={handleToggleBlock}
+          {/* Quick Status & Block Status Banner (Edit mode only) */}
+          {!isCreateMode && (
+            <div
               className={cn(
-                'px-3 py-1.5 rounded-lg text-xs font-bold transition-all border shrink-0',
+                'p-3.5 rounded-xl border flex items-center justify-between gap-3 transition-colors',
                 isBlocked
-                  ? 'bg-emerald-600 hover:bg-emerald-500 text-white border-emerald-500 shadow-md shadow-emerald-900/30'
-                  : 'bg-rose-600/90 hover:bg-rose-500 text-white border-rose-500 shadow-md shadow-rose-900/30'
+                  ? 'bg-rose-950/40 border-rose-800/70 text-rose-200'
+                  : accountStatus === 'INACTIVE'
+                  ? 'bg-amber-950/40 border-amber-800/70 text-amber-200'
+                  : 'bg-emerald-950/40 border-emerald-800/70 text-emerald-200'
               )}
             >
-              {isBlocked ? 'Unblock User' : 'Block User'}
-            </button>
-          </div>
+              <div className="flex items-center gap-2.5">
+                {isBlocked ? (
+                  <Ban className="w-5 h-5 text-rose-400 shrink-0" />
+                ) : accountStatus === 'INACTIVE' ? (
+                  <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0" />
+                ) : (
+                  <UserCheck className="w-5 h-5 text-emerald-400 shrink-0" />
+                )}
+                <div>
+                  <div className="text-xs font-bold uppercase tracking-wider">
+                    Account Status: {accountStatus}
+                  </div>
+                  <div className="text-[11px] opacity-80">
+                    {isBlocked
+                      ? 'Access blocked. User cannot authenticate into portal.'
+                      : accountStatus === 'INACTIVE'
+                      ? 'Account deactivated.'
+                      : 'Account in good standing with active privileges.'}
+                  </div>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleToggleBlock}
+                className={cn(
+                  'px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all whitespace-nowrap',
+                  isBlocked
+                    ? 'bg-emerald-600 hover:bg-emerald-500 text-white border-emerald-500/50 shadow-md'
+                    : 'bg-rose-600/30 hover:bg-rose-600/50 text-rose-300 border-rose-500/40'
+                )}
+              >
+                {isBlocked ? 'Restore Access' : 'Block User'}
+              </button>
+            </div>
+          )}
 
           {/* Form */}
           <form onSubmit={handleSaveChanges} className="space-y-4">
@@ -343,16 +378,18 @@ export function EditUserModal({
               </div>
             </div>
 
-            {/* Danger Zone: Delete user */}
+            {/* Danger Zone: Delete user (Edit mode only) */}
             <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between">
-              <button
-                type="button"
-                onClick={() => setShowDeleteConfirm(true)}
-                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-rose-400 hover:text-rose-300 hover:bg-rose-950/40 border border-rose-900/50 transition-colors"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                Delete User
-              </button>
+              {!isCreateMode ? (
+                <button
+                  type="button"
+                  onClick={() => setShowDeleteConfirm(true)}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-rose-400 hover:text-rose-300 hover:bg-rose-950/40 border border-rose-900/50 transition-colors"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  Delete User
+                </button>
+              ) : <div />}
 
               <div className="flex items-center gap-2">
                 <button
@@ -367,8 +404,8 @@ export function EditUserModal({
                   disabled={isSaving}
                   className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-bold transition-all shadow-md shadow-indigo-600/30"
                 >
-                  <Save className="w-3.5 h-3.5" />
-                  {isSaving ? 'Saving...' : 'Save Changes'}
+                  {isCreateMode ? <UserPlus className="w-3.5 h-3.5" /> : <Save className="w-3.5 h-3.5" />}
+                  {isSaving ? 'Processing...' : isCreateMode ? 'Create User Account' : 'Save Changes'}
                 </button>
               </div>
             </div>

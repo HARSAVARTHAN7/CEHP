@@ -28,7 +28,6 @@ const programSchema = new Schema<IProgram>(
   { timestamps: true }
 );
 
-programSchema.index({ code: 1 }, { unique: true });
 programSchema.index({ departmentId: 1 });
 
 export const Program = mongoose.model<IProgram>('Program', programSchema);

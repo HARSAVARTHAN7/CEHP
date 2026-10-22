@@ -7,6 +7,7 @@ import { Subject } from '../models/Subject';
 import { Semester } from '../models/Semester';
 import { Examination } from '../models/Examination';
 import { AppError } from '../utils/AppError';
+import { AuditLog } from '../models/AuditLog';
 import { MOCK_DEPARTMENTS, MOCK_SUBJECTS, MOCK_SEMESTERS, MOCK_EXAMINATIONS } from '../utils/mockData';
 
 // ---- DEPARTMENTS ----
@@ -241,5 +242,125 @@ export async function updateExamination(req: AuthRequest, res: Response, next: N
     const examination = await Examination.findByIdAndUpdate(req.params.id, req.body, { new: true });
     if (!examination) return next(new AppError('Examination not found', 404));
     res.json({ success: true, data: examination });
+  } catch (err) { next(err); }
+}
+
+export async function deleteDepartment(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      res.json({ success: true, message: 'Department deleted successfully' });
+      return;
+    }
+    const dept = await Department.findByIdAndDelete(req.params.id);
+    if (!dept) return next(new AppError('Department not found', 404));
+
+    try {
+      await AuditLog.create({
+        actorUserId: req.userId,
+        action: 'DEPARTMENT_DELETED',
+        entityType: 'Department',
+        entityId: dept._id,
+        beforeSnapshot: dept.toObject(),
+        ipAddress: req.ip,
+      });
+    } catch {}
+
+    res.json({ success: true, message: 'Department deleted successfully' });
+  } catch (err) { next(err); }
+}
+
+export async function deleteProgram(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      res.json({ success: true, message: 'Program deleted successfully' });
+      return;
+    }
+    const prog = await Program.findByIdAndDelete(req.params.id);
+    if (!prog) return next(new AppError('Program not found', 404));
+
+    try {
+      await AuditLog.create({
+        actorUserId: req.userId,
+        action: 'PROGRAM_DELETED',
+        entityType: 'Program',
+        entityId: prog._id,
+        beforeSnapshot: prog.toObject(),
+        ipAddress: req.ip,
+      });
+    } catch {}
+
+    res.json({ success: true, message: 'Program deleted successfully' });
+  } catch (err) { next(err); }
+}
+
+export async function deleteSubject(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      res.json({ success: true, message: 'Subject deleted successfully' });
+      return;
+    }
+    const sub = await Subject.findByIdAndDelete(req.params.id);
+    if (!sub) return next(new AppError('Subject not found', 404));
+
+    try {
+      await AuditLog.create({
+        actorUserId: req.userId,
+        action: 'SUBJECT_DELETED',
+        entityType: 'Subject',
+        entityId: sub._id,
+        beforeSnapshot: sub.toObject(),
+        ipAddress: req.ip,
+      });
+    } catch {}
+
+    res.json({ success: true, message: 'Subject deleted successfully' });
+  } catch (err) { next(err); }
+}
+
+export async function deleteSemester(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      res.json({ success: true, message: 'Semester deleted successfully' });
+      return;
+    }
+    const sem = await Semester.findByIdAndDelete(req.params.id);
+    if (!sem) return next(new AppError('Semester not found', 404));
+
+    try {
+      await AuditLog.create({
+        actorUserId: req.userId,
+        action: 'SEMESTER_DELETED',
+        entityType: 'Semester',
+        entityId: sem._id,
+        beforeSnapshot: sem.toObject(),
+        ipAddress: req.ip,
+      });
+    } catch {}
+
+    res.json({ success: true, message: 'Semester deleted successfully' });
+  } catch (err) { next(err); }
+}
+
+export async function deleteExamination(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      res.json({ success: true, message: 'Examination deleted successfully' });
+      return;
+    }
+    const exam = await Examination.findByIdAndDelete(req.params.id);
+    if (!exam) return next(new AppError('Examination not found', 404));
+
+    try {
+      await AuditLog.create({
+        actorUserId: req.userId,
+        action: 'EXAMINATION_DELETED',
+        entityType: 'Examination',
+        entityId: exam._id,
+        beforeSnapshot: exam.toObject(),
+        ipAddress: req.ip,
+      });
+    } catch {}
+
+    res.json({ success: true, message: 'Examination deleted successfully' });
   } catch (err) { next(err); }
 }

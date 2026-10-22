@@ -6,6 +6,7 @@ import StudentDashboard from './pages/student/StudentDashboard';
 import { StudentHistoryPage } from './pages/student/StudentHistoryPage';
 import AIAssistantPage from './pages/student/AIAssistantPage';
 import { FacultyDashboard } from './pages/faculty/FacultyDashboard';
+import { HODDashboard } from './pages/hod/HODDashboard';
 import { MarksEntryPage } from './pages/faculty/MarksEntryPage';
 import { ExamOfficerDashboard } from './pages/exam/ExamOfficerDashboard';
 import { ResultPublishPage } from './pages/exam/ResultPublishPage';
@@ -28,8 +29,9 @@ function RoleDashboard() {
     case 'STUDENT':
       return <StudentDashboard />;
     case 'FACULTY':
-    case 'HOD':
       return <FacultyDashboard />;
+    case 'HOD':
+      return <HODDashboard />;
     case 'EXAM_OFFICER':
       return <ExamOfficerDashboard />;
     case 'ADMIN':
@@ -213,8 +215,24 @@ function ProtectedLayout() {
         <Route
           path="/results"
           element={
-            <RoleGuard allowedRoles={['ADMIN', 'EXAM_OFFICER', 'HOD']}>
+            <RoleGuard allowedRoles={['ADMIN', 'EXAM_OFFICER']}>
               <ResultPublishPage />
+            </RoleGuard>
+          }
+        />
+        <Route
+          path="/department/results"
+          element={
+            <RoleGuard allowedRoles={['HOD', 'ADMIN']}>
+              <HODDashboard />
+            </RoleGuard>
+          }
+        />
+        <Route
+          path="/hod/dashboard"
+          element={
+            <RoleGuard allowedRoles={['HOD', 'ADMIN']}>
+              <HODDashboard />
             </RoleGuard>
           }
         />

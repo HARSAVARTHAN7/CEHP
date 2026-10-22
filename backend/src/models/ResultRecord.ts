@@ -25,6 +25,10 @@ export interface IResultRecord extends Document {
   enteredBy: mongoose.Types.ObjectId;
   approvedBy?: mongoose.Types.ObjectId;
   publishedAt?: Date;
+  isCorrection?: boolean;
+  correctionReason?: string;
+  correctedBy?: mongoose.Types.ObjectId;
+  correctedAt?: Date;
   remarks?: string;
   createdAt: Date;
   updatedAt: Date;
@@ -60,6 +64,10 @@ const resultRecordSchema = new Schema<IResultRecord>(
     enteredBy: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     approvedBy: { type: Schema.Types.ObjectId, ref: 'User' },
     publishedAt: { type: Date },
+    isCorrection: { type: Boolean, default: false },
+    correctionReason: { type: String },
+    correctedBy: { type: Schema.Types.ObjectId, ref: 'User' },
+    correctedAt: { type: Date },
     remarks: { type: String },
   },
   { timestamps: true }
