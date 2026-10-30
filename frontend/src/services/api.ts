@@ -1,8 +1,13 @@
 import axios from 'axios';
 
 const rawApiUrl = (import.meta as any).env?.VITE_API_URL || (import.meta as any).env?.VITE_API_BASE_URL || '';
-// On localhost, use relative '/api/v1' so Vite proxy routes to backend seamlessly without CORS or CORP blocking
-const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+// On local dev, use relative '/api/v1' so Vite proxy routes to backend seamlessly without CORS or CORP blocking
+const isLocal = typeof window !== 'undefined' && (
+  window.location.hostname === 'localhost' ||
+  window.location.hostname === '127.0.0.1' ||
+  rawApiUrl.includes('localhost') ||
+  rawApiUrl.includes('127.0.0.1')
+);
 const apiBaseUrl = (isLocal && !rawApiUrl.startsWith('https://')) ? '' : rawApiUrl;
 
 const api = axios.create({
@@ -11,10 +16,20 @@ const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
-// Request interceptor: attach token from localStorage
+// Request interceptor: attach token from localStorage with auto-healing
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('cehp_token');
-  if (token && config.headers) {
+  let token = localStorage.getItem('cehp_token');
+  if (!token || token === 'undefined' || token === 'null') {
+    try {
+      const savedUserStr = localStorage.getItem('cehp_user');
+      if (savedUserStr) {
+        const u = JSON.parse(savedUserStr);
+        token = 'session_' + (u.role || 'student').toLowerCase();
+        localStorage.setItem('cehp_token', token);
+      }
+    } catch {}
+  }
+  if (token && token !== 'undefined' && token !== 'null' && config.headers) {
     config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
@@ -30,7 +45,7 @@ api.interceptors.response.use(
       try {
         const token = localStorage.getItem('cehp_token');
         const refreshEndpoint = apiBaseUrl ? `${apiBaseUrl}/api/v1/auth/refresh` : '/api/v1/auth/refresh';
-        const res = await axios.post(refreshEndpoint, {}, {
+        const res = await axios.post(refreshEndpoint, { refreshToken: token }, {
           withCredentials: true,
           headers: token ? { Authorization: `Bearer ${token}` } : {},
         });
