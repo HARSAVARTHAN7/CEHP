@@ -51,13 +51,19 @@ app.use(cookieParser());
 // Serverless DB connection middleware
 app.use(async (_req, _res, next) => {
   if (mongoose.connection.readyState === 0 && config.mongodbUri) {
+    let timer: NodeJS.Timeout | undefined;
     try {
       await Promise.race([
         connectDB(1),
-        new Promise((resolve) => setTimeout(resolve, 2000)),
+        new Promise((resolve) => {
+          timer = setTimeout(resolve, 2000);
+          if (timer.unref) timer.unref();
+        }),
       ]);
     } catch {
       // Standby mode
+    } finally {
+      if (timer) clearTimeout(timer);
     }
   }
   next();

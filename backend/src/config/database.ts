@@ -39,12 +39,17 @@ export async function connectDB(retries = 1): Promise<void> {
   return connectionPromise;
 }
 
-mongoose.connection.on('disconnected', () => {
-  logger.warn('⚠️ MongoDB disconnected. Attempting automatic reconnection...');
-  setTimeout(() => {
-    connectDB(2).catch(() => {});
-  }, 2000);
-});
+const isServerless = Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.NOW_REGION);
+
+if (!isServerless) {
+  mongoose.connection.on('disconnected', () => {
+    logger.warn('⚠️ MongoDB disconnected. Attempting automatic reconnection...');
+    const t = setTimeout(() => {
+      connectDB(2).catch(() => {});
+    }, 2000);
+    if (t.unref) t.unref();
+  });
+}
 
 mongoose.connection.on('error', (err) => {
   logger.error('MongoDB error:', err);

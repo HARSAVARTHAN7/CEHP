@@ -275643,13 +275643,17 @@ async function connectDB(retries = 1) {
   });
   return connectionPromise;
 }
-import_mongoose.default.connection.on("disconnected", () => {
-  logger.warn("\u26A0\uFE0F MongoDB disconnected. Attempting automatic reconnection...");
-  setTimeout(() => {
-    connectDB(2).catch(() => {
-    });
-  }, 2e3);
-});
+var isServerless2 = Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.NOW_REGION);
+if (!isServerless2) {
+  import_mongoose.default.connection.on("disconnected", () => {
+    logger.warn("\u26A0\uFE0F MongoDB disconnected. Attempting automatic reconnection...");
+    const t = setTimeout(() => {
+      connectDB(2).catch(() => {
+      });
+    }, 2e3);
+    if (t.unref) t.unref();
+  });
+}
 import_mongoose.default.connection.on("error", (err) => {
   logger.error("MongoDB error:", err);
 });
@@ -282651,12 +282655,18 @@ app.use(import_express7.default.urlencoded({ extended: true, limit: "10mb" }));
 app.use((0, import_cookie_parser.default)());
 app.use(async (_req, _res, next) => {
   if (import_mongoose21.default.connection.readyState === 0 && config.mongodbUri) {
+    let timer;
     try {
       await Promise.race([
         connectDB(1),
-        new Promise((resolve) => setTimeout(resolve, 2e3))
+        new Promise((resolve) => {
+          timer = setTimeout(resolve, 2e3);
+          if (timer.unref) timer.unref();
+        })
       ]);
     } catch {
+    } finally {
+      if (timer) clearTimeout(timer);
     }
   }
   next();
