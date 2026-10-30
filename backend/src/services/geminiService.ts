@@ -34,7 +34,7 @@ function getClient(): GoogleGenerativeAI {
 }
 
 export function getGeminiModelName(): string {
-  return process.env.GEMINI_MODEL || config.gemini.model || 'gemini-1.5-flash';
+  return process.env.GEMINI_MODEL || config.gemini.model || 'gemini-3.5-flash';
 }
 
 export interface GeminiTextOptions {
@@ -79,55 +79,56 @@ export async function generateGeminiText(prompt: string, options: GeminiTextOpti
   }
 
   const client = getClient();
-  const modelName = getGeminiModelName();
+  const candidateModels = [getGeminiModelName(), 'gemini-3.5-flash-lite', 'gemini-3.5-flash'];
   const timeoutMs = options.timeoutMs ?? 15000;
 
-  let retries = 2;
   let lastError: any = null;
 
-  while (retries >= 0) {
-    try {
-      const model = client.getGenerativeModel({
-        model: modelName,
-        systemInstruction: options.systemInstruction,
-        generationConfig: {
-          temperature: options.temperature ?? 0.7,
-          maxOutputTokens: options.maxOutputTokens ?? 1500,
-        },
-        safetySettings: DEFAULT_SAFETY_SETTINGS,
-      });
+  for (const modelName of candidateModels) {
+    let retries = 1;
+    while (retries >= 0) {
+      try {
+        const model = client.getGenerativeModel({
+          model: modelName,
+          systemInstruction: options.systemInstruction,
+          generationConfig: {
+            temperature: options.temperature ?? 0.7,
+            maxOutputTokens: options.maxOutputTokens ?? 1500,
+          },
+          safetySettings: DEFAULT_SAFETY_SETTINGS,
+        });
 
-      const response = await withTimeout(
-        model.generateContent(prompt),
-        timeoutMs,
-        `Gemini API request timed out after ${timeoutMs}ms`
-      );
+        const response = await withTimeout(
+          model.generateContent(prompt),
+          timeoutMs,
+          `Gemini API request timed out after ${timeoutMs}ms`
+        );
 
-      const text = response.response.text();
-      if (!text || text.trim() === '') {
-        throw new Error('Gemini returned an empty response.');
+        const text = response.response.text();
+        if (!text || text.trim() === '') {
+          throw new Error('Gemini returned an empty response.');
+        }
+        return text.trim();
+      } catch (err: any) {
+        lastError = err;
+        const status = err.status || err.statusCode;
+        const msg = err.message || '';
+
+        // If this model is unavailable/not found/quota/503, try next candidate model
+        if (status === 404 || status === 503 || msg.includes('not found') || msg.includes('high demand')) {
+          logger.warn(`Model ${modelName} returned ${status}. Attempting fallback model...`);
+          break; // break retry loop to try next model in candidateModels
+        }
+
+        // Bounded retry on 429
+        if (retries > 0 && status === 429) {
+          retries--;
+          await new Promise((r) => setTimeout(r, 1200));
+          continue;
+        }
+
+        break;
       }
-      return text.trim();
-    } catch (err: any) {
-      lastError = err;
-      const status = err.status || err.statusCode;
-      const msg = err.message || '';
-
-      // Don't retry client errors or invalid credentials
-      if (status === 400 || status === 401 || status === 403 || msg.includes('API_KEY_INVALID')) {
-        logger.error(`Gemini authorization / bad request error (${status}): ${msg}`);
-        throw new Error(`Gemini API authorization failure: ${msg}`);
-      }
-
-      // Transient failure (429 or 503 or timeout) -> bounded retry
-      if (retries > 0 && (status === 429 || status === 503 || msg.includes('timed out'))) {
-        retries--;
-        logger.warn(`Gemini transient error (${status || msg}). Retrying... (${retries} left)`);
-        await new Promise((r) => setTimeout(r, 1200));
-        continue;
-      }
-
-      break;
     }
   }
 
@@ -178,18 +179,8 @@ export async function chatWithGemini(
   }
 
   const client = getClient();
-  const modelName = getGeminiModelName();
+  const candidateModels = [getGeminiModelName(), 'gemini-3.5-flash-lite', 'gemini-3.5-flash'];
   const timeoutMs = options.timeoutMs ?? 15000;
-
-  const model = client.getGenerativeModel({
-    model: modelName,
-    systemInstruction: options.systemInstruction,
-    generationConfig: {
-      temperature: options.temperature ?? 0.7,
-      maxOutputTokens: options.maxOutputTokens ?? 1500,
-    },
-    safetySettings: DEFAULT_SAFETY_SETTINGS,
-  });
 
   // Prepare chat history (all messages except the latest user message)
   const history = messages.slice(0, -1).map((m) => ({
@@ -202,17 +193,36 @@ export async function chatWithGemini(
     throw new Error('Chat requires at least one user query message.');
   }
 
-  const chat = model.startChat({ history });
-  const result = await withTimeout(
-    chat.sendMessage(latestMessage.text),
-    timeoutMs,
-    `Gemini chat request timed out after ${timeoutMs}ms`
-  );
+  let lastError: any = null;
 
-  const answer = result.response.text();
-  if (!answer || answer.trim() === '') {
-    throw new Error('Gemini returned an empty response.');
+  for (const modelName of candidateModels) {
+    try {
+      const model = client.getGenerativeModel({
+        model: modelName,
+        systemInstruction: options.systemInstruction,
+        generationConfig: {
+          temperature: options.temperature ?? 0.7,
+          maxOutputTokens: options.maxOutputTokens ?? 1500,
+        },
+        safetySettings: DEFAULT_SAFETY_SETTINGS,
+      });
+
+      const chat = model.startChat({ history });
+      const result = await withTimeout(
+        chat.sendMessage(latestMessage.text),
+        timeoutMs,
+        `Gemini chat request timed out after ${timeoutMs}ms`
+      );
+
+      const answer = result.response.text();
+      if (answer && answer.trim() !== '') {
+        return answer.trim();
+      }
+    } catch (err: any) {
+      lastError = err;
+      logger.warn(`Model ${modelName} chat attempt failed: ${err.message}. Trying next fallback model...`);
+    }
   }
 
-  return answer.trim();
+  throw new Error(`Gemini chat service failure: ${lastError?.message || 'Unable to get response from Gemini'}`);
 }
