@@ -195,8 +195,8 @@ export const aiApi = {
   status: () => api.get('/ai/status'),
   performanceSummary: () => api.post('/ai/performance-summary'),
   studyPlan: (data: Record<string, unknown>) => api.post('/ai/study-plan', data),
-  chat: (message: string, history?: { role: string; content: string }[]) =>
-    api.post('/ai/chat', { message, history }),
+  chat: (message: string, history?: { role: string; content: string }[], conversationId?: string) =>
+    api.post('/ai/chat', { message, question: message, query: message, history, conversationId }),
   riskAnalysis: (studentId?: string) =>
     api.post('/ai/risk-analysis', studentId ? { studentId } : {}),
   arrearGuidance: () => api.post('/ai/arrear-guidance'),

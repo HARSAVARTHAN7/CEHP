@@ -94,10 +94,22 @@ export default function AIAssistantPage() {
 
       setSuggestedQuestions(newSuggestions);
     } catch (err: any) {
-      const errorMsg =
-        err.response?.data?.message ||
-        err.message ||
-        "Unable to complete AI inquiry due to a temporary service error. Please click below to retry.";
+      let errorMsg = "The AI assistant encountered an unexpected processing issue. Please click below to retry.";
+      if (err.response) {
+        if (err.response.status === 401) {
+          errorMsg = "Your session has expired. Please log in again to continue.";
+        } else if (err.response.status === 429) {
+          errorMsg = err.response.data?.message || "AI inquiry rate limit reached. Please wait a moment before trying again.";
+        } else if (err.response.status === 503) {
+          errorMsg = "The academic records or AI service is temporarily unavailable. Please click below to retry.";
+        } else if (err.response.data?.message && typeof err.response.data.message === 'string' && !err.response.data.message.includes('Internal server error')) {
+          errorMsg = err.response.data.message;
+        } else {
+          errorMsg = "Unable to process inquiry at this moment. Please click below to retry.";
+        }
+      } else if (err.request) {
+        errorMsg = "Unable to reach the CEHP server. Please check your network connection and retry.";
+      }
 
       setMessages((prev) => [
         ...prev.filter((m) => !m.isError),
@@ -279,11 +291,18 @@ export default function AIAssistantPage() {
 
                   {msg.isError && (
                     <button
+                      type="button"
+                      aria-label="Retry Question"
+                      disabled={isLoading}
                       onClick={handleRetryLastMessage}
-                      className="mt-2.5 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-900/60 hover:bg-rose-800 text-white text-xs font-semibold border border-rose-700 transition-all"
+                      className="mt-2.5 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-900/60 hover:bg-rose-800 disabled:opacity-50 text-white text-xs font-semibold border border-rose-700 transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-rose-500 focus:ring-offset-2"
                     >
-                      <RotateCcw className="w-3.5 h-3.5" />
-                      Retry Question
+                      {isLoading ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden="true" />
+                      ) : (
+                        <RotateCcw className="w-3.5 h-3.5" aria-hidden="true" />
+                      )}
+                      <span>Retry Question</span>
                     </button>
                   )}
 

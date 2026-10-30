@@ -341,13 +341,15 @@ Create:
  */
 export async function academicChat(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
   try {
-    const { message, history } = req.body;
-    if (!message || typeof message !== 'string' || message.trim() === '') {
+    const rawMessage = req.body.message || req.body.question || req.body.query || req.body.prompt;
+    if (!rawMessage || typeof rawMessage !== 'string' || rawMessage.trim() === '') {
       res.status(400).json({ success: false, message: 'Question message is required.' });
       return;
     }
+    const message = rawMessage.trim();
+    const history = req.body.history || req.body.conversation || [];
 
-    const studentId = req.userId;
+    const studentId = req.userRole === 'STUDENT' ? req.userId : (req.body.studentId || req.userId);
 
     let results: any[] = [];
     let studentProfile: any = null;
@@ -363,22 +365,26 @@ export async function academicChat(req: AuthRequest, res: Response, next: NextFu
     let cgpaResult = { cgpa: 8.45 };
 
     if (mongoose.connection.readyState === 1 && mongoose.isValidObjectId(studentId)) {
-      results = await ResultRecord.find({ studentId, publicationStatus: 'PUBLISHED' })
-        .populate('subjectId', 'code name credits')
-        .populate('semesterId', 'semesterNumber academicYear');
-
-      studentProfile = await StudentProfile.findOne({ userId: studentId });
-      if (!studentProfile) {
-        const userDoc = await User.findById(studentId);
-        if (userDoc?.studentProfileId) {
-          studentProfile = await StudentProfile.findById(userDoc.studentProfileId);
-        }
-      }
-      if (results.length === 0 && studentProfile) {
-        results = await ResultRecord.find({ studentId: studentProfile._id, publicationStatus: 'PUBLISHED' })
+      try {
+        results = await ResultRecord.find({ studentId, publicationStatus: 'PUBLISHED' })
           .populate('subjectId', 'code name credits')
           .populate('semesterId', 'semesterNumber academicYear');
-      }
+
+        studentProfile = await StudentProfile.findOne({ userId: studentId });
+        if (!studentProfile) {
+          const userDoc = await User.findById(studentId);
+          if (userDoc?.studentProfileId) {
+            studentProfile = await StudentProfile.findById(userDoc.studentProfileId);
+          }
+        }
+        if (!studentProfile) {
+          studentProfile = await StudentProfile.findById(studentId);
+        }
+        if (results.length === 0 && studentProfile) {
+          results = await ResultRecord.find({ studentId: studentProfile._id, publicationStatus: 'PUBLISHED' })
+            .populate('subjectId', 'code name credits')
+            .populate('semesterId', 'semesterNumber academicYear');
+        }
 
       const fakeRule = {
         minPassPercentage: 50,
@@ -417,7 +423,10 @@ export async function academicChat(req: AuthRequest, res: Response, next: NextFu
         semesterStats.sort((a, b) => a.semesterNumber - b.semesterNumber);
         cgpaResult = calculateCGPA(semesterStats, fakeRule);
       }
+    } catch (dbErr) {
+      logger.warn('Non-fatal error retrieving student academic records for AI chat:', dbErr);
     }
+  }
 
     // Detect Question Intent Category
     const q = message.toLowerCase().trim();
@@ -652,8 +661,12 @@ CRITICAL RULES:
         if (answer) {
           res.json({
             success: true,
+            answer,
+            response: answer,
+            suggestions,
             data: {
               answer,
+              response: answer,
               mode: 'gemini',
               model: getGeminiModelName(),
               intent,
@@ -768,8 +781,12 @@ CRITICAL RULES:
 
     res.json({
       success: true,
+      answer: fallbackResponse,
+      response: fallbackResponse,
+      suggestions,
       data: {
         answer: fallbackResponse,
+        response: fallbackResponse,
         mode: 'rules-based',
         intent,
         suggestions,
