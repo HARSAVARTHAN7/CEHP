@@ -41,7 +41,7 @@ async function testConversationContext() {
   console.log(`Dynamic Suggestions after Turn 2:`, res2.data.data.suggestions);
 
   if (res2.data.data.answer && res2.status === 200) {
-    console.log('\n✅ PASSED: Multi-turn conversation context works seamlessly with Gemini!');
+    console.log('\n✅ PASSED: Multi-turn conversation context works seamlessly with Groq!');
   }
 }
 

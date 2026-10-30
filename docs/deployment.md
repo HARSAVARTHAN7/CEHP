@@ -35,7 +35,7 @@ VITE_API_BASE_URL=http://localhost:5000
 ```ini
 PORT=8001
 HOST=0.0.0.0
-GEMINI_API_KEY=your_optional_gemini_api_key
+GROQ_API_KEY=your_groq_api_key
 FALLBACK_TO_RULES=true
 ```
 

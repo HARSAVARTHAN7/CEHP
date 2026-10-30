@@ -99,13 +99,13 @@ Calculations adhere to Choice Based Credit System (CBCS) / Anna University regul
 |                   Incoming Request                     |
 +---------------------------+----------------------------+
                             |
-           Is Gemini API Key Configured & Valid?
+           Is Groq API Key Configured & Valid?
              /                                \
            YES                                NO
            /                                    \
 +---------v----------+              +------------v-------------+
-| Query Google Gemini|              | Rule-Based Fallback      |
-| 1.5 Flash Endpoint |              | - Deterministic Scoring  |
+| Query Groq Cloud   |              | Rule-Based Fallback      |
+| LPU Inference API  |              | - Deterministic Scoring  |
 +---------+----------+              | - At-risk Factor Matrix  |
           |                         | - Dynamic Study Schedule |
       Success?                      +------------+-------------+

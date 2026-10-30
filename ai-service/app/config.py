@@ -8,8 +8,8 @@ class Settings(BaseSettings):
     DEBUG: bool = False
     
     # AI Providers / Keys
-    GEMINI_API_KEY: str = ""
-    OPENAI_API_KEY: str = ""
+    GROQ_API_KEY: str = ""
+    GROQ_MODEL: str = "qwen/qwen3.8-27b"
     FALLBACK_TO_RULES: bool = True
     
     # Backend URL for verification if needed

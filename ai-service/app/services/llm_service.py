@@ -14,37 +14,44 @@ from .academic_rules import (
 
 class LLMService:
     def __init__(self):
-        self.gemini_key = settings.GEMINI_API_KEY
-        self.openai_key = settings.OPENAI_API_KEY
+        self.groq_key = settings.GROQ_API_KEY
+        self.groq_model = settings.GROQ_MODEL or "qwen/qwen3.8-27b"
         self.fallback = settings.FALLBACK_TO_RULES
 
     async def get_performance_summary(self, profile: StudentAcademicProfile) -> PerformanceSummaryResponse:
-        # Check if LLM is enabled and key provided
-        if self.gemini_key:
+        if self.groq_key:
             try:
-                # Attempt call to Gemini
-                url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={self.gemini_key}"
+                url = "https://api.groq.com/openai/v1/chat/completions"
                 prompt = (
                     f"Analyze this student's academic performance: Name={profile.name}, "
                     f"CGPA={profile.cgpa}, Arrears={profile.active_arrears}, Semester={profile.current_semester}. "
                     "Provide a brief evaluation summary, 2 strengths, 2 areas for improvement, and 2 actionable recommendations."
                 )
-                async with httpx.AsyncClient(timeout=10.0) as client:
-                    resp = await client.post(url, json={
-                        "contents": [{"parts": [{"text": prompt}]}]
-                    })
+                headers = {
+                    "Authorization": f"Bearer {self.groq_key.strip()}",
+                    "Content-Type": "application/json"
+                }
+                payload = {
+                    "model": self.groq_model,
+                    "messages": [
+                        {"role": "system", "content": "You are a university academic counselor."},
+                        {"role": "user", "content": prompt}
+                    ],
+                    "temperature": 0.7,
+                    "max_tokens": 500
+                }
+                async with httpx.AsyncClient(timeout=5.0) as client:
+                    resp = await client.post(url, json=payload, headers=headers)
                     if resp.status_code == 200:
                         data = resp.json()
-                        text = data["candidates"][0]["content"]["parts"][0]["text"]
-                        # Extract or wrap
+                        text = data["choices"][0]["message"]["content"]
                         res = evaluate_performance_rules(profile)
-                        res.mode = "gemini_llm"
+                        res.mode = "groq_llm"
                         res.summary_text = text[:400]
                         return res
-            except Exception as e:
+            except Exception:
                 pass  # Gracefully fall back to deterministic rules
         
-        # Deterministic Rules Fallback
         return evaluate_performance_rules(profile)
 
     async def generate_study_plan(
@@ -65,20 +72,31 @@ class LLMService:
         profile: Optional[StudentAcademicProfile],
         conversation_history: List[Any]
     ) -> ChatResponse:
-        if self.gemini_key:
+        if self.groq_key:
             try:
-                url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={self.gemini_key}"
+                url = "https://api.groq.com/openai/v1/chat/completions"
                 context = f"Student Profile: CGPA={profile.cgpa if profile else 8.45}, Arrears={profile.active_arrears if profile else 0}."
                 prompt = f"{context}\nStudent asks: {message}\nProvide a concise, encouraging academic response."
-                async with httpx.AsyncClient(timeout=8.0) as client:
-                    resp = await client.post(url, json={
-                        "contents": [{"parts": [{"text": prompt}]}]
-                    })
+                headers = {
+                    "Authorization": f"Bearer {self.groq_key.strip()}",
+                    "Content-Type": "application/json"
+                }
+                payload = {
+                    "model": self.groq_model,
+                    "messages": [
+                        {"role": "system", "content": "You are the university CEHP Academic AI Advisor. Ground responses strictly in academic facts."},
+                        {"role": "user", "content": prompt}
+                    ],
+                    "temperature": 0.7,
+                    "max_tokens": 800
+                }
+                async with httpx.AsyncClient(timeout=5.0) as client:
+                    resp = await client.post(url, json=payload, headers=headers)
                     if resp.status_code == 200:
                         data = resp.json()
-                        text = data["candidates"][0]["content"]["parts"][0]["text"]
+                        text = data["choices"][0]["message"]["content"]
                         return ChatResponse(
-                            mode="gemini_llm",
+                            mode="groq_llm",
                             answer=text,
                             suggested_followups=["How to improve my SGPA?", "Check my arrear status", "Generate study plan"]
                         )

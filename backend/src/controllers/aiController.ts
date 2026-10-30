@@ -16,13 +16,6 @@ import {
   calculateStudentArrears,
 } from '../services/academicCalculation';
 import {
-  generateGeminiText,
-  generateGeminiStructured,
-  chatWithGemini,
-  isGeminiAvailable,
-  getGeminiModelName,
-} from '../services/geminiService';
-import {
   generateGroqText,
   generateGroqStructured,
   chatWithGroq,
@@ -33,24 +26,22 @@ import { logger } from '../utils/logger';
 
 /**
  * GET /api/v1/ai/status
- * Safe diagnostic status of Groq and Gemini integrations (does NOT expose keys)
+ * Safe diagnostic status of Groq integration (does NOT expose keys)
  */
 export async function getAiStatus(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
   try {
     const groqConfigured = isGroqAvailable();
-    const geminiConfigured = isGeminiAvailable();
-    const activeProvider = groqConfigured ? 'groq' : geminiConfigured ? 'google-gemini' : 'institutional-rules-engine';
-    const activeModel = groqConfigured ? getGroqModelName() : geminiConfigured ? getGeminiModelName() : 'institutional-rules-engine';
+    const activeProvider = groqConfigured ? 'groq' : 'institutional-rules-engine';
+    const activeModel = groqConfigured ? getGroqModelName() : 'institutional-rules-engine';
 
     res.json({
       success: true,
       data: {
-        isConfigured: groqConfigured || geminiConfigured,
+        isConfigured: groqConfigured,
         provider: activeProvider,
         model: activeModel,
-        status: (groqConfigured || geminiConfigured) ? 'OPERATIONAL' : 'RULES_FALLBACK_ACTIVE',
+        status: groqConfigured ? 'OPERATIONAL' : 'RULES_FALLBACK_ACTIVE',
         groqConfigured,
-        geminiConfigured,
         capabilities: [
           'AI Academic Chat Assistant',
           'AI Performance Summary & Trend Analysis',
@@ -217,49 +208,7 @@ Provide:
           return;
         }
       } catch (groqErr: any) {
-        logger.warn('Groq performance-summary enrichment failed, attempting Gemini:', groqErr.message);
-      }
-    }
-
-    // Tier 2: Gemini AI (Fallback)
-    if (isGeminiAvailable()) {
-      try {
-        const prompt = `Student Academic Summary:
-- Verified CGPA: ${cgpaResult.cgpa.toFixed(2)} / 10.0
-- Semester Trend: ${semesterStats.map((s) => `Sem ${s.semesterNumber}: SGPA ${s.sgpa.toFixed(2)} (${s.credits} credits)`).join(', ')}
-- Strong Courses: ${strongSubjects.map((s) => `${s.name} (${s.grade})`).join(', ') || 'None'}
-- Weak/Failed Courses: ${weakSubjects.map((s) => `${s.name} (${s.grade}, ${s.percentage}%)`).join(', ') || 'None'}
-
-Provide:
-1. A concise 2-sentence executive performance insight.
-2. 3 prioritized, actionable academic recommendations.`;
-
-        const aiResponse = await generateGeminiStructured<{
-          executiveInsight: string;
-          recommendations: string[];
-        }>(
-          prompt,
-          `{"executiveInsight": "string", "recommendations": ["string", "string", "string"]}`,
-          {
-            systemInstruction: 'You are an expert university academic dean and performance analyst. Interpret the verified student metrics constructively.',
-          }
-        );
-
-        if (aiResponse && aiResponse.recommendations?.length > 0) {
-          res.json({
-            success: true,
-            data: {
-              ...baseSummary,
-              executiveInsight: aiResponse.executiveInsight,
-              recommendations: aiResponse.recommendations,
-              mode: 'gemini',
-              model: getGeminiModelName(),
-            },
-          });
-          return;
-        }
-      } catch (geminiErr: any) {
-        logger.warn('Gemini performance-summary enrichment failed, using rules-based:', geminiErr.message);
+        logger.warn('Groq performance-summary enrichment failed, using rules-based:', groqErr.message);
       }
     }
 
@@ -322,8 +271,8 @@ export async function generateStudyPlan(req: AuthRequest, res: Response, next: N
       mode: 'rules-based',
     };
 
-    // If Gemini is available, generate a personalized timetable
-    if (isGeminiAvailable()) {
+    // If Groq is available, generate a personalized timetable
+    if (isGroqAvailable()) {
       try {
         const prompt = `Generate a personalized university study timetable for an engineering student with:
 - Subjects Needing Focus: ${subjectsToPlan.map((s: any) => `${s.name} (Current: ${s.percentage || 'N/A'}%)`).join(', ')}
@@ -364,8 +313,9 @@ Create:
   "strategicAdvice": "string"
 }`;
 
-        const aiPlan = await generateGeminiStructured<any>(prompt, schema, {
+        const aiPlan = await generateGroqStructured<any>(prompt, schema, {
           systemInstruction: 'You are an expert university study planner and academic strategist. Generate structured, realistic schedules.',
+          timeoutMs: 4500,
         });
 
         if (aiPlan && Array.isArray(aiPlan.weeklySchedule) && aiPlan.weeklySchedule.length > 0) {
@@ -373,14 +323,14 @@ Create:
             success: true,
             data: {
               ...aiPlan,
-              mode: 'gemini',
-              model: getGeminiModelName(),
+              mode: 'groq',
+              model: getGroqModelName(),
             },
           });
           return;
         }
-      } catch (geminiErr: any) {
-        logger.warn('Gemini study-plan generation failed, using rules-based plan:', geminiErr.message);
+      } catch (groqErr: any) {
+        logger.warn('Groq study-plan generation failed, using rules-based plan:', groqErr.message);
       }
     }
 
@@ -707,11 +657,11 @@ CRITICAL RULES:
           res.json({
             success: true,
             answer: groqAnswer,
-            response: groqAnswer,
-            suggestions,
+            source: 'groq',
             data: {
               answer: groqAnswer,
               response: groqAnswer,
+              source: 'groq',
               mode: 'groq',
               model: getGroqModelName(),
               intent,
@@ -722,77 +672,7 @@ CRITICAL RULES:
           return;
         }
       } catch (groqErr: any) {
-        logger.warn('Groq chat request failed, attempting Gemini fallback:', groqErr.message);
-      }
-    }
-
-    // Tier 2: Gemini AI (Grounded in Verified Academic Records)
-    if (isGeminiAvailable()) {
-      try {
-        const systemInstruction = `You are the CEHP Academic AI Advisor at an engineering university.
-You are strictly grounded in the student's verified institutional records:
-- Registration Number: ${studentProfile?.registrationNumber || '212222040001'}
-- Current Cumulative CGPA: ${safeCgpa} / 10.0
-- Total Completed Degree Credits: ${totalCredits}
-- Total Passed Courses: ${totalPassed}
-- Active Backlogs / Arrears: ${failedResults.length} (${failedResults.map((r: any) => `${r.subjectCode || r.subjectName || 'Course'} (Attempts: ${r.totalAttempts || 1})`).join(', ') || '0 active backlogs'})
-- Semester-Wise Breakdown: ${semesterStats.map((s) => `Sem ${s.semesterNumber}: SGPA ${typeof s.sgpa === 'number' ? s.sgpa.toFixed(2) : '0.00'} (${s.credits} credits)`).join('; ')}
-
-VERIFIED COMPUTED GROUND TRUTH FOR THIS QUESTION:
-- Target CGPA Calculation (for target ${targetVal}): ${targetPlan.explanation} (Max possible CGPA with 10.0 SGPA: ${safeTargetMaxCgpa})
-- Latest Semester (${semNumber}) SGPA Calculation: Total Weighted Points = ${safeExpPoints}, Credits = ${explanation.totalCredits}, SGPA = ${safeExpSgpa}
-- Semester Comparison: ${comparisonSummary} (Differential: ${compDifferential}, Trajectory: ${compTrajectory})
-- Lowest Semester SGPA was Semester ${minSem?.semesterNumber || 1} (${safeMinSgpa}), Highest was Semester ${maxSem?.semesterNumber || 4} (${safeMaxSgpa})
-
-CRITICAL RULES:
-1. Always base your academic analysis on these verified figures. Never invent marks, grades, or fake arrear counts.
-2. The university uses a 10-point Choice-Based Credit System (CBCS): Grade O = 10 GP, A+ = 9 GP, A = 8 GP, B+ = 7 GP, B = 6 GP, C = 5 GP, F = 0 GP (Arrear). Minimum passing marks: 50% combined (internal 40% + external 60%).
-3. Format your answers cleanly with markdown headings (###), bullet points, and bold text for readability.
-4. Be professional, supportive, motivating, and mathematically accurate.`;
-
-        let answer = '';
-
-        if (Array.isArray(history) && history.length > 0) {
-          const formattedHistory = history
-            .filter((h: any) => h.content && (h.role === 'user' || h.role === 'assistant'))
-            .map((h: any) => ({
-              role: (h.role === 'assistant' ? 'model' : 'user') as 'model' | 'user',
-              text: String(h.content),
-            }));
-
-          formattedHistory.push({ role: 'user', text: message });
-
-          answer = await chatWithGemini(formattedHistory, {
-            systemInstruction,
-            temperature: 0.7,
-          });
-        } else {
-          answer = await generateGeminiText(message, {
-            systemInstruction,
-            temperature: 0.7,
-          });
-        }
-
-        if (answer) {
-          res.json({
-            success: true,
-            answer,
-            response: answer,
-            suggestions,
-            data: {
-              answer,
-              response: answer,
-              mode: 'gemini',
-              model: getGeminiModelName(),
-              intent,
-              suggestions,
-              disclaimer: 'Generated by Google Gemini grounded in verified institutional academic records.',
-            },
-          });
-          return;
-        }
-      } catch (geminiErr: any) {
-        logger.warn('Gemini chat request failed, falling back to deterministic CBCS engine:', geminiErr.message);
+        logger.warn('Groq chat request failed, falling back to deterministic CBCS rules engine:', groqErr.message);
       }
     }
 
@@ -974,7 +854,7 @@ export async function arrearGuidance(req: AuthRequest, res: Response, next: Next
 
     let aiGuidance = `You have ${activeArrears.length} active backlogs. Focus on prioritizing the 4-credit subjects during the next supplementary exam window.`;
 
-    if (isGeminiAvailable()) {
+    if (isGroqAvailable()) {
       try {
         const prompt = `Student has ${activeArrears.length} uncleared academic arrears:
 ${activeArrears.map((a: any) => `- ${a.subjectCode}: ${a.subjectName} (Sem ${a.semesterNumber}, Attempts: ${a.totalAttempts}, Latest Marks: ${a.latestTotalMarks || 'Below 50'}/100)`).join('\n')}
@@ -984,15 +864,16 @@ Provide:
 2. Internal Assessment & Pass Criteria Advice: How to ensure marks exceed 50% combined.
 3. Exam Execution Advice: Best practices for university supplementary answer writing.`;
 
-        const responseText = await generateGeminiText(prompt, {
+        const responseText = await generateGroqText(prompt, {
           systemInstruction: 'You are an experienced academic remediation counselor. Provide actionable, practical advice for clearing arrears.',
+          timeoutMs: 4500,
         });
 
         if (responseText) {
           aiGuidance = responseText;
         }
-      } catch (geminiErr: any) {
-        logger.warn('Gemini arrear-guidance generation failed:', geminiErr.message);
+      } catch (groqErr: any) {
+        logger.warn('Groq arrear-guidance generation failed:', groqErr.message);
       }
     }
 
@@ -1002,7 +883,7 @@ Provide:
         activeArrearsCount: activeArrears.length,
         arrears: activeArrears,
         guidance: aiGuidance,
-        mode: isGeminiAvailable() ? 'gemini' : 'rules-based',
+        mode: isGroqAvailable() ? 'groq' : 'rules-based',
       },
     });
   } catch (err) {
@@ -1059,7 +940,7 @@ export async function explainResult(req: AuthRequest, res: Response, next: NextF
       `- **Result Status**: **${targetRecord.resultStatus}**\n\n` +
       `Under the 10-point CBCS grading system, Grade ${targetRecord.grade} indicates ${targetRecord.resultStatus === 'PASS' ? 'successful credit clearance' : 'unsuccessful attempt requiring re-appearance in supplementary cycle'}.`;
 
-    if (isGeminiAvailable()) {
+    if (isGroqAvailable()) {
       try {
         const prompt = `Explain the following examination result to the student:
 - Subject: ${sub?.code} - ${sub?.name} (${sub?.credits || 4} Credits)
@@ -1073,8 +954,9 @@ Provide:
 1. A clear breakdown of how the internal and external components yielded this grade.
 2. Concrete suggestions on what marks would have been needed to achieve the next higher grade tier.`;
 
-        const aiText = await generateGeminiText(prompt, {
+        const aiText = await generateGroqText(prompt, {
           systemInstruction: 'You are an academic controller of examinations advisor. Explain grading transparently and constructively.',
+          timeoutMs: 4500,
         });
 
         if (aiText) {
@@ -1083,14 +965,14 @@ Provide:
             data: {
               record: targetRecord,
               explanation: aiText,
-              mode: 'gemini',
-              model: getGeminiModelName(),
+              mode: 'groq',
+              model: getGroqModelName(),
             },
           });
           return;
         }
-      } catch (geminiErr: any) {
-        logger.warn('Gemini explain-result failed:', geminiErr.message);
+      } catch (groqErr: any) {
+        logger.warn('Groq explain-result failed:', groqErr.message);
       }
     }
 
@@ -1128,7 +1010,7 @@ export async function academicSuggestions(req: AuthRequest, res: Response, next:
       'Review weak concept areas with department course mentors.',
     ];
 
-    if (isGeminiAvailable()) {
+    if (isGroqAvailable()) {
       try {
         const prompt = `Student Profile:
 Strong Subjects: ${strong.join(', ') || 'General Engineering Foundations'}
@@ -1136,10 +1018,13 @@ Challenging Subjects: ${weak.join(', ') || 'None (all passed)'}
 
 Provide 4 high-yield, specific academic suggestions to help this student excel in upcoming semester exams and career placement.`;
 
-        const aiResponse = await generateGeminiStructured<{ suggestions: string[] }>(
+        const aiResponse = await generateGroqStructured<{ suggestions: string[] }>(
           prompt,
           `{"suggestions": ["string", "string", "string", "string"]}`,
-          { systemInstruction: 'You are a career and academic advisor for undergraduate engineering students.' }
+          {
+            systemInstruction: 'You are a career and academic advisor for undergraduate engineering students.',
+            timeoutMs: 4500,
+          }
         );
 
         if (aiResponse?.suggestions?.length > 0) {
@@ -1147,14 +1032,14 @@ Provide 4 high-yield, specific academic suggestions to help this student excel i
             success: true,
             data: {
               suggestions: aiResponse.suggestions,
-              mode: 'gemini',
-              model: getGeminiModelName(),
+              mode: 'groq',
+              model: getGroqModelName(),
             },
           });
           return;
         }
-      } catch (geminiErr: any) {
-        logger.warn('Gemini academic-suggestions failed:', geminiErr.message);
+      } catch (groqErr: any) {
+        logger.warn('Groq academic-suggestions failed:', groqErr.message);
       }
     }
 
@@ -1256,7 +1141,7 @@ export async function riskAnalysis(req: AuthRequest, res: Response, next: NextFu
       ? ['Schedule meeting with academic advisor', 'Enroll in remedial support programs', 'Review study strategies']
       : ['Continue current high performance', 'Participate in honors electives and technical symposia'];
 
-    if (isGeminiAvailable() && indicators.length > 0) {
+    if (isGroqAvailable() && indicators.length > 0) {
       try {
         const prompt = `Student has risk classification: ${riskCategory}.
 Indicators identified:
@@ -1264,17 +1149,20 @@ ${indicators.map((i) => `- [${i.severity}] ${i.indicator}: ${i.evidence}`).join(
 
 Provide 3 actionable, empathetic remediation recommendations for faculty and student intervention.`;
 
-        const aiResponse = await generateGeminiStructured<{ recommendations: string[] }>(
+        const aiResponse = await generateGroqStructured<{ recommendations: string[] }>(
           prompt,
           `{"recommendations": ["string", "string", "string"]}`,
-          { systemInstruction: 'You are an academic retention specialist.' }
+          {
+            systemInstruction: 'You are an academic retention specialist.',
+            timeoutMs: 4500,
+          }
         );
 
         if (aiResponse?.recommendations?.length > 0) {
           suggestedActions = aiResponse.recommendations;
         }
-      } catch (geminiErr: any) {
-        logger.warn('Gemini risk-analysis failed:', geminiErr.message);
+      } catch (groqErr: any) {
+        logger.warn('Groq risk-analysis failed:', groqErr.message);
       }
     }
 
@@ -1286,7 +1174,7 @@ Provide 3 actionable, empathetic remediation recommendations for faculty and stu
         indicators,
         suggestedActions,
         disclaimer: 'This is an advisory signal based on academic records. It is not a definitive assessment.',
-        mode: isGeminiAvailable() ? 'gemini' : 'rules-based',
+        mode: isGroqAvailable() ? 'groq' : 'rules-based',
       },
     });
   } catch (err) {
