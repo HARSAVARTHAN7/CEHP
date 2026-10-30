@@ -1,21 +1,10 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "services": {
-    "ai-service": {
-      "root": "ai-service",
-      "framework": "fastapi"
-    },
     "backend": {
       "root": "backend",
       "framework": "express",
-      "bindings": [
-        {
-          "type": "service",
-          "service": "ai-service",
-          "format": "url",
-          "env": "AI_SERVICE_URL"
-        }
-      ]
+      "entrypoint": "src/app.ts"
     },
     "frontend": {
       "root": "frontend",
@@ -32,13 +21,15 @@
     {
       "source": "/api/(.*)",
       "destination": {
-        "service": "backend"
+        "service": "backend",
+        "path": "/api/$1"
       }
     },
     {
       "source": "/health",
       "destination": {
-        "service": "backend"
+        "service": "backend",
+        "path": "/health"
       }
     },
     {
