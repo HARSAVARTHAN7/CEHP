@@ -2,95 +2,12 @@ import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   FileText, Download, Filter, Search, Award, CheckCircle2,
-  AlertCircle, ChevronDown, ChevronUp, Calendar, BookOpen, Layers, X
+  AlertCircle, ChevronDown, ChevronUp, Calendar, BookOpen, Layers, X, RefreshCw, Clock
 } from 'lucide-react';
 import { resultApi } from '../../services/api';
 import { cn, formatDate, gradeColor, statusColor } from '../../lib/utils';
 import { ResultRecord, Semester } from '../../types';
 import { ConfirmModal } from '../../components/ConfirmModal';
-
-const DEFAULT_RECORDS: ResultRecord[] = [
-  {
-    _id: 'rec_1',
-    subject: { code: 'CS401', name: 'Database Management Systems', credits: 4, type: 'THEORY' },
-    semester: { _id: 'sem_4', number: 4, academicYear: '2024-2025', term: 'EVEN' },
-    examination: { name: 'End Semester Exam May 2025', title: 'SEE May 2025' },
-    internalMarks: 36,
-    externalMarks: 52,
-    totalMarks: 88,
-    grade: 'A+',
-    gradePoint: 9,
-    isPassed: true,
-    resultStatus: 'PASS',
-    status: 'PUBLISHED',
-    attemptNumber: 1,
-    publishedAt: new Date().toISOString(),
-  },
-  {
-    _id: 'rec_2',
-    subject: { code: 'CS402', name: 'Operating Systems', credits: 4, type: 'THEORY' },
-    semester: { _id: 'sem_4', number: 4, academicYear: '2024-2025', term: 'EVEN' },
-    examination: { name: 'End Semester Exam May 2025', title: 'SEE May 2025' },
-    internalMarks: 38,
-    externalMarks: 54,
-    totalMarks: 92,
-    grade: 'O',
-    gradePoint: 10,
-    isPassed: true,
-    resultStatus: 'PASS',
-    status: 'PUBLISHED',
-    attemptNumber: 1,
-    publishedAt: new Date().toISOString(),
-  },
-  {
-    _id: 'rec_3',
-    subject: { code: 'CS403', name: 'Computer Networks', credits: 4, type: 'THEORY' },
-    semester: { _id: 'sem_4', number: 4, academicYear: '2024-2025', term: 'EVEN' },
-    examination: { name: 'End Semester Exam May 2025', title: 'SEE May 2025' },
-    internalMarks: 34,
-    externalMarks: 48,
-    totalMarks: 82,
-    grade: 'A',
-    gradePoint: 8,
-    isPassed: true,
-    resultStatus: 'PASS',
-    status: 'PUBLISHED',
-    attemptNumber: 1,
-    publishedAt: new Date().toISOString(),
-  },
-  {
-    _id: 'rec_4',
-    subject: { code: 'CS404', name: 'Design and Analysis of Algorithms', credits: 4, type: 'THEORY' },
-    semester: { _id: 'sem_4', number: 4, academicYear: '2024-2025', term: 'EVEN' },
-    examination: { name: 'End Semester Exam May 2025', title: 'SEE May 2025' },
-    internalMarks: 35,
-    externalMarks: 50,
-    totalMarks: 85,
-    grade: 'A+',
-    gradePoint: 9,
-    isPassed: true,
-    resultStatus: 'PASS',
-    status: 'PUBLISHED',
-    attemptNumber: 1,
-    publishedAt: new Date().toISOString(),
-  },
-  {
-    _id: 'rec_5',
-    subject: { code: 'CS405', name: 'Database & OS Laboratory', credits: 2, type: 'PRACTICAL' },
-    semester: { _id: 'sem_4', number: 4, academicYear: '2024-2025', term: 'EVEN' },
-    examination: { name: 'End Semester Exam May 2025', title: 'SEE May 2025' },
-    internalMarks: 39,
-    externalMarks: 56,
-    totalMarks: 95,
-    grade: 'O',
-    gradePoint: 10,
-    isPassed: true,
-    resultStatus: 'PASS',
-    status: 'PUBLISHED',
-    attemptNumber: 1,
-    publishedAt: new Date().toISOString(),
-  },
-];
 
 export function StudentHistoryPage() {
   const [selectedSemester, setSelectedSemester] = useState<string>('ALL');
@@ -104,7 +21,7 @@ export function StudentHistoryPage() {
     setShowClearConfirm(false);
   };
 
-  const { data: historyData, isLoading, isError, refetch } = useQuery({
+  const { data: historyData, isLoading, isError, refetch, dataUpdatedAt } = useQuery({
     queryKey: ['myHistory'],
     queryFn: async () => {
       const res = await resultApi.getMyHistory();
@@ -113,17 +30,17 @@ export function StudentHistoryPage() {
     retry: 1,
   });
 
-  const parsedRecords = useMemo(() => {
+  const parsedRecords: any[] = useMemo(() => {
     if (historyData?.records && Array.isArray(historyData.records)) {
       return historyData.records;
     }
     if (Array.isArray(historyData)) {
       return historyData;
     }
-    return DEFAULT_RECORDS;
+    return [];
   }, [historyData]);
 
-  const student = historyData?.student || { cgpa: 8.45, totalCreditsEarned: 96 };
+  const student = historyData?.student || null;
 
   // Authoritative single-source-of-truth arrear calculation
   const { activeArrearsCount, clearedArrearsCount, passedCount } = useMemo(() => {
@@ -135,7 +52,6 @@ export function StudentHistoryPage() {
       };
     }
 
-    // Client-side deduplication fallback for raw record arrays
     const subjectMap = new Map<string, any[]>();
     for (const rec of parsedRecords) {
       const rawSub = rec.subjectId || rec.subject;
@@ -208,6 +124,14 @@ export function StudentHistoryPage() {
       return sum + (typeof rawSub === 'object' ? rawSub?.credits : r.credits || 0);
     }, 0);
 
+  const calculatedCGPA = useMemo(() => {
+    const passedAndAttempted = parsedRecords.filter((r: any) => r.gradePoint != null && r.credits != null);
+    if (passedAndAttempted.length === 0) return 0;
+    const totalWeighted = passedAndAttempted.reduce((acc: number, r: any) => acc + (Number(r.gradePoint || 0) * Number(r.credits || 0)), 0);
+    const totalCreds = passedAndAttempted.reduce((acc: number, r: any) => acc + Number(r.credits || 0), 0);
+    return totalCreds > 0 ? parseFloat((totalWeighted / totalCreds).toFixed(2)) : 0;
+  }, [parsedRecords]);
+
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
 
   const handleDownloadPdf = async () => {
@@ -229,6 +153,49 @@ export function StudentHistoryPage() {
       setIsDownloadingPdf(false);
     }
   };
+
+  // Loading State
+  if (isLoading) {
+    return (
+      <div className="space-y-6 animate-pulse">
+        <div className="h-28 bg-[#0a0f1d] rounded-2xl border border-slate-800"></div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="h-28 bg-[#0a0f1d] rounded-2xl border border-slate-800"></div>
+          ))}
+        </div>
+        <div className="h-96 bg-[#0a0f1d] rounded-2xl border border-slate-800"></div>
+      </div>
+    );
+  }
+
+  // Error State: Server unavailable without records
+  if (isError && parsedRecords.length === 0) {
+    return (
+      <div className="space-y-6">
+        <div className="p-8 rounded-2xl bg-[#0a0f1d] border border-rose-800/60 shadow-xl text-center space-y-4">
+          <div className="inline-flex p-3.5 rounded-2xl bg-rose-950/60 text-rose-400 border border-rose-800/50">
+            <AlertCircle className="w-8 h-8" />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold text-white tracking-tight">Academic Examination History Unavailable</h2>
+            <p className="text-slate-300 text-sm mt-1.5 max-w-md mx-auto">
+              Unable to retrieve academic records. Please check your connection and try again.
+            </p>
+          </div>
+          <div className="pt-2">
+            <button
+              onClick={() => refetch()}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm transition-all shadow-lg shadow-indigo-600/30 active:scale-95"
+            >
+              <RefreshCw className="w-4 h-4" />
+              Retry Connection
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -262,20 +229,25 @@ export function StudentHistoryPage() {
         </div>
       </div>
 
-      {/* API Failure Alert Banner */}
-      {isError && (
-        <div className="p-4 rounded-2xl bg-rose-950/40 border border-rose-800/60 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-rose-200 text-sm">
+      {/* Cached Data State Alert Banner */}
+      {isError && parsedRecords.length > 0 && (
+        <div className="p-4 rounded-2xl bg-amber-950/40 border border-amber-800/60 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-amber-200 text-sm">
           <div className="flex items-center gap-2.5">
-            <AlertCircle className="w-5 h-5 text-rose-400 shrink-0" />
-            <span>
-              Unable to load real-time examination history from server. Showing cached record.
-            </span>
+            <Clock className="w-5 h-5 text-amber-400 shrink-0" />
+            <div>
+              <p className="font-semibold">Showing previously retrieved academic records. Unable to refresh the latest data.</p>
+              {dataUpdatedAt > 0 && (
+                <p className="text-xs text-amber-300/80 mt-0.5">
+                  Last successful retrieval: {new Date(dataUpdatedAt).toLocaleTimeString()}
+                </p>
+              )}
+            </div>
           </div>
           <button
             onClick={() => refetch()}
-            className="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-semibold text-xs transition-all whitespace-nowrap"
+            className="px-3.5 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-semibold text-xs transition-all whitespace-nowrap shadow-md"
           >
-            Retry Connection
+            Retry Refresh
           </button>
         </div>
       )}
@@ -289,7 +261,7 @@ export function StudentHistoryPage() {
           </div>
           <div className="mt-2.5 flex items-baseline gap-2">
             <span className="text-3xl font-extrabold text-white">
-              {student?.cgpa ? Number(student.cgpa).toFixed(2) : '8.45'}
+              {student?.cgpa ? Number(student.cgpa).toFixed(2) : (calculatedCGPA > 0 ? calculatedCGPA.toFixed(2) : '0.00')}
             </span>
             <span className="text-xs text-slate-400 font-medium">/ 10.0 scale</span>
           </div>
@@ -302,7 +274,7 @@ export function StudentHistoryPage() {
           </div>
           <div className="mt-2.5 flex items-baseline gap-2">
             <span className="text-3xl font-extrabold text-indigo-400">
-              {student?.totalCreditsEarned || totalCredits || 96}
+              {student?.totalCreditsEarned || totalCredits}
             </span>
             <span className="text-xs text-slate-400 font-medium">credits</span>
           </div>
@@ -315,7 +287,7 @@ export function StudentHistoryPage() {
           </div>
           <div className="mt-2.5 flex items-baseline gap-2">
             <span className="text-3xl font-extrabold text-emerald-400">
-              {passedCount || 18}
+              {passedCount}
             </span>
             <span className="text-xs text-slate-400 font-medium">cleared</span>
           </div>
@@ -382,7 +354,7 @@ export function StudentHistoryPage() {
           >
             All Semesters
           </button>
-          {[4, 3, 2, 1].map((num) => (
+          {[1, 2, 3, 4, 5, 6, 7, 8].map((num) => (
             <button
               key={num}
               onClick={() => setSelectedSemester(String(num))}
@@ -418,9 +390,9 @@ export function StudentHistoryPage() {
                 <th className="py-3.5 px-4">Subject Code & Name</th>
                 <th className="py-3.5 px-4 text-center">Semester</th>
                 <th className="py-3.5 px-4 text-center">Credits</th>
-                <th className="py-3.5 px-4 text-center">Internal (40)</th>
-                <th className="py-3.5 px-4 text-center">External (60)</th>
-                <th className="py-3.5 px-4 text-center">Total (100)</th>
+                <th className="py-3.5 px-4 text-center">Internal</th>
+                <th className="py-3.5 px-4 text-center">External</th>
+                <th className="py-3.5 px-4 text-center">Total</th>
                 <th className="py-3.5 px-4 text-center">Grade</th>
                 <th className="py-3.5 px-4 text-center">Grade Point</th>
                 <th className="py-3.5 px-4 text-center">Status</th>
@@ -428,71 +400,90 @@ export function StudentHistoryPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/80 text-sm">
-              {filteredRecords.map((record: any) => {
-                const sub = typeof record.subject === 'object' ? record.subject : null;
-                const sem = typeof record.semester === 'object' ? record.semester : null;
-                const isExpanded = expandedRecord === record._id;
-                const passed = record.isPassed || record.resultStatus === 'PASS';
+              {filteredRecords.length === 0 ? (
+                <tr>
+                  <td colSpan={10} className="py-12 text-center text-slate-300">
+                    <BookOpen className="w-8 h-8 text-slate-500 mx-auto mb-2" />
+                    <p className="font-semibold text-sm">No academic examination records are available for your account yet.</p>
+                    <p className="text-xs text-slate-400 mt-1">
+                      {searchQuery || selectedSemester !== 'ALL'
+                        ? 'Try clearing your search query or semester filter.'
+                        : 'Examination attempts and grades will appear here once officially published.'}
+                    </p>
+                  </td>
+                </tr>
+              ) : (
+                filteredRecords.map((record: any) => {
+                  const sub = typeof record.subjectId === 'object' ? record.subjectId : (typeof record.subject === 'object' ? record.subject : null);
+                  const sem = typeof record.semesterId === 'object' ? record.semesterId : (typeof record.semester === 'object' ? record.semester : null);
+                  const exam = typeof record.examinationId === 'object' ? record.examinationId : (typeof record.examination === 'object' ? record.examination : null);
+                  const isExpanded = expandedRecord === record._id;
+                  const passed = record.isPassed || record.resultStatus === 'PASS';
+                  const subCode = sub?.code || record.subjectCode || 'SUB';
+                  const subName = sub?.name || record.subjectName || 'Course';
+                  const subCredits = record.credits || sub?.credits || 0;
+                  const semNum = sem?.semesterNumber || sem?.number || record.semesterNumber || 1;
 
-                return (
-                  <tr
-                    key={record._id}
-                    className="hover:bg-slate-800/40 transition-colors"
-                  >
-                    <td className="py-3.5 px-4">
-                      <div className="font-bold text-slate-100">
-                        {sub?.code || 'CS401'}
-                      </div>
-                      <div className="text-xs text-slate-300 font-medium">
-                        {sub?.name || 'Core Academic Course'}
-                      </div>
-                    </td>
-                    <td className="py-3.5 px-4 text-center text-slate-300 font-medium">
-                      Sem {sem?.number || record.semesterNumber || 4}
-                    </td>
-                    <td className="py-3.5 px-4 text-center text-slate-200 font-mono font-bold">
-                      {sub?.credits || record.credits || 4}
-                    </td>
-                    <td className="py-3.5 px-4 text-center font-mono font-medium text-slate-300">
-                      {record.internalMarks}
-                    </td>
-                    <td className="py-3.5 px-4 text-center font-mono font-medium text-slate-300">
-                      {record.externalMarks}
-                    </td>
-                    <td className="py-3.5 px-4 text-center font-mono font-bold text-white">
-                      {record.totalMarks}
-                    </td>
-                    <td className="py-3.5 px-4 text-center">
-                      <span className="inline-block px-2.5 py-0.5 rounded text-xs font-bold font-mono bg-indigo-950 text-indigo-300 border border-indigo-700/50">
-                        {record.grade}
-                      </span>
-                    </td>
-                    <td className="py-3.5 px-4 text-center font-mono font-bold text-slate-200">
-                      {record.gradePoint}
-                    </td>
-                    <td className="py-3.5 px-4 text-center">
-                      <span
-                        className={cn(
-                          'inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold',
-                          passed
-                            ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
-                            : 'bg-rose-500/15 text-rose-300 border border-rose-500/30'
-                        )}
-                      >
-                        {passed ? 'Passed' : 'Arrear'}
-                      </span>
-                    </td>
-                    <td className="py-3.5 px-4 text-center">
-                      <button
-                        onClick={() => setExpandedRecord(isExpanded ? null : record._id)}
-                        className="p-1 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition-colors"
-                      >
-                        {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
+                  return (
+                    <tr
+                      key={record._id}
+                      className="hover:bg-slate-800/40 transition-colors"
+                    >
+                      <td className="py-3.5 px-4">
+                        <div className="font-bold text-slate-100">
+                          {subCode}
+                        </div>
+                        <div className="text-xs text-slate-300 font-medium">
+                          {subName}
+                        </div>
+                      </td>
+                      <td className="py-3.5 px-4 text-center text-slate-300 font-medium">
+                        Sem {semNum}
+                      </td>
+                      <td className="py-3.5 px-4 text-center text-slate-200 font-mono font-bold">
+                        {subCredits}
+                      </td>
+                      <td className="py-3.5 px-4 text-center font-mono font-medium text-slate-300">
+                        {record.internalMarks}
+                      </td>
+                      <td className="py-3.5 px-4 text-center font-mono font-medium text-slate-300">
+                        {record.externalMarks}
+                      </td>
+                      <td className="py-3.5 px-4 text-center font-mono font-bold text-white">
+                        {record.totalMarks}
+                      </td>
+                      <td className="py-3.5 px-4 text-center">
+                        <span className="inline-block px-2.5 py-0.5 rounded text-xs font-bold font-mono bg-indigo-950 text-indigo-300 border border-indigo-700/50">
+                          {record.grade}
+                        </span>
+                      </td>
+                      <td className="py-3.5 px-4 text-center font-mono font-bold text-slate-200">
+                        {record.gradePoint}
+                      </td>
+                      <td className="py-3.5 px-4 text-center">
+                        <span
+                          className={cn(
+                            'inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold',
+                            passed
+                              ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
+                              : 'bg-rose-500/15 text-rose-300 border border-rose-500/30'
+                          )}
+                        >
+                          {passed ? 'Passed' : 'Arrear'}
+                        </span>
+                      </td>
+                      <td className="py-3.5 px-4 text-center">
+                        <button
+                          onClick={() => setExpandedRecord(isExpanded ? null : record._id)}
+                          className="p-1 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition-colors"
+                        >
+                          {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
           </table>
         </div>

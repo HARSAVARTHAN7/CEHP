@@ -68,13 +68,7 @@ export async function generateUniqueUserId(role: string, customInput?: string): 
 export async function listUsers(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
   try {
     if (mongoose.connection.readyState !== 1) {
-      const usersList = Object.values(MOCK_USERS);
-      res.json({
-        success: true,
-        data: usersList,
-        pagination: { page: 1, limit: 20, total: usersList.length, pages: 1 },
-      });
-      return;
+      return next(new AppError('Database connection is unavailable', 503));
     }
 
     const { page = '1', limit = '20', role, search, status } = req.query as Record<string, string>;
@@ -109,9 +103,7 @@ export async function listUsers(req: AuthRequest, res: Response, next: NextFunct
 export async function getUser(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
   try {
     if (mongoose.connection.readyState !== 1) {
-      const u = Object.values(MOCK_USERS).find((user: any) => user.id === req.params.id || user._id === req.params.id) || MOCK_USERS['student1@cehp.edu'];
-      res.json({ success: true, data: u });
-      return;
+      return next(new AppError('Database connection is unavailable', 503));
     }
 
     const user = await User.findById(req.params.id)

@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const apiBaseUrl = (import.meta as any).env?.VITE_API_URL;
+const apiBaseUrl = (import.meta as any).env?.VITE_API_URL || (import.meta as any).env?.VITE_API_BASE_URL || '';
 const api = axios.create({
   baseURL: apiBaseUrl ? `${apiBaseUrl}/api/v1` : '/api/v1',
   withCredentials: true,
@@ -25,7 +25,8 @@ api.interceptors.response.use(
       originalRequest._retry = true;
       try {
         const token = localStorage.getItem('cehp_token');
-        const res = await axios.post('/api/v1/auth/refresh', {}, {
+        const refreshEndpoint = apiBaseUrl ? `${apiBaseUrl}/api/v1/auth/refresh` : '/api/v1/auth/refresh';
+        const res = await axios.post(refreshEndpoint, {}, {
           withCredentials: true,
           headers: token ? { Authorization: `Bearer ${token}` } : {},
         });

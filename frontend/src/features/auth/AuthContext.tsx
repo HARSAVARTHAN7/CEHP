@@ -36,20 +36,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const refetchUser = useCallback(async () => {
     try {
+      const savedToken = localStorage.getItem('cehp_token');
+      if (savedToken && savedToken.startsWith('demo_token_')) {
+        localStorage.removeItem('cehp_token');
+        localStorage.removeItem('cehp_user');
+        setUser(null);
+        return;
+      }
+
       const res = await authApi.getMe();
       if (res.data?.data) {
         setUser(res.data.data);
         localStorage.setItem('cehp_user', JSON.stringify(res.data.data));
       }
-    } catch {
-      // If server verification fails, only clear state if there was no stored user
-      try {
-        const saved = localStorage.getItem('cehp_user');
-        if (!saved) {
-          setUser(null);
-        }
-      } catch {
+    } catch (err: any) {
+      if (err.response?.status === 401 || err.response?.status === 403) {
         setUser(null);
+        localStorage.removeItem('cehp_user');
+        localStorage.removeItem('cehp_token');
       }
     } finally {
       setIsLoading(false);
@@ -61,77 +65,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [refetchUser]);
 
   const login = async (email: string, password: string) => {
+    const res = await authApi.login(email, password);
+    const userData = res.data?.data || res.data?.user || res.data;
+    setUser(userData);
     try {
-      const res = await authApi.login(email, password);
-      const userData = res.data?.data || res.data;
-      setUser(userData);
-      try {
-        localStorage.setItem('cehp_user', JSON.stringify(userData));
-        if (res.data?.accessToken) {
-          localStorage.setItem('cehp_token', res.data.accessToken);
-        }
-      } catch (e) {
-        console.error('Failed to save user session:', e);
+      localStorage.setItem('cehp_user', JSON.stringify(userData));
+      if (res.data?.accessToken) {
+        localStorage.setItem('cehp_token', res.data.accessToken);
       }
-    } catch (err: any) {
-      const lower = email.toLowerCase().trim();
-      const demoUsers: Record<string, User> = {
-        'admin@cehp.edu': {
-          id: 'usr_admin',
-          name: 'System Administrator',
-          email: 'admin@cehp.edu',
-          role: 'ADMIN',
-          accountStatus: 'ACTIVE',
-        },
-        'controller@cehp.edu': {
-          id: 'usr_exam',
-          name: 'Dr. Ramesh Kumar (COE)',
-          email: 'controller@cehp.edu',
-          role: 'EXAM_OFFICER',
-          accountStatus: 'ACTIVE',
-        },
-        'hod.cse@cehp.edu': {
-          id: 'usr_hod',
-          name: 'Prof. S. Meenakshi (HOD)',
-          email: 'hod.cse@cehp.edu',
-          role: 'HOD',
-          accountStatus: 'ACTIVE',
-        },
-        'faculty1@cehp.edu': {
-          id: 'usr_fac1',
-          name: 'Dr. K. Vignesh',
-          email: 'faculty1@cehp.edu',
-          role: 'FACULTY',
-          accountStatus: 'ACTIVE',
-        },
-        'student1@cehp.edu': {
-          id: 'usr_stu1',
-          name: 'Aarav Sharma',
-          email: 'student1@cehp.edu',
-          role: 'STUDENT',
-          accountStatus: 'ACTIVE',
-          studentProfile: {
-            _id: 'p1',
-            registrationNumber: 'CSE2023001',
-            currentSemester: 5,
-            cgpa: 8.45,
-          },
-        },
-      };
-
-      if (password === 'Demo@1234' && demoUsers[lower]) {
-        const demoUser = demoUsers[lower];
-        setUser(demoUser);
-        try {
-          localStorage.setItem('cehp_user', JSON.stringify(demoUser));
-          localStorage.setItem('cehp_token', `demo_token_${demoUser.role.toLowerCase()}`);
-        } catch (e) {
-          console.error('Failed to save demo session:', e);
-        }
-        return;
-      }
-
-      throw err;
+    } catch (e) {
+      console.error('Failed to save user session:', e);
     }
   };
 

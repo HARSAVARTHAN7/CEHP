@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import mongoose from 'mongoose';
 import { User, UserRole } from '../models/User';
+import { StudentProfile } from '../models/StudentProfile';
 import { config } from '../config/env';
 import { AppError } from '../utils/AppError';
 import { logger } from '../utils/logger';
@@ -47,52 +48,48 @@ export async function login(req: Request, res: Response, next: NextFunction): Pr
     const { email, password } = req.body;
     const lowerEmail = email.toLowerCase().trim();
 
-    // Standby/In-Memory Fallback if MongoDB is not connected
+    // If MongoDB is not connected, allow mock only in test environment
     if (mongoose.connection.readyState !== 1) {
-      const dynamicRole: UserRole = (
-        lowerEmail.includes('admin') ? 'ADMIN' :
-        (lowerEmail.includes('hod') || lowerEmail.includes('head')) ? 'HOD' :
-        (lowerEmail.includes('exam') || lowerEmail.includes('coe') || lowerEmail.includes('controller')) ? 'EXAM_OFFICER' :
-        lowerEmail.includes('faculty') ? 'FACULTY' :
-        'STUDENT'
-      );
+      if (process.env.NODE_ENV === 'test') {
+        const dynamicRole: UserRole = (
+          lowerEmail.includes('admin') ? 'ADMIN' :
+          (lowerEmail.includes('hod') || lowerEmail.includes('head')) ? 'HOD' :
+          (lowerEmail.includes('exam') || lowerEmail.includes('coe') || lowerEmail.includes('controller')) ? 'EXAM_OFFICER' :
+          lowerEmail.includes('faculty') ? 'FACULTY' :
+          'STUDENT'
+        );
 
-      const mockUser = MOCK_USERS[lowerEmail] || {
-        id: 'usr_dynamic',
-        _id: 'usr_dynamic',
-        name: lowerEmail.split('@')[0].toUpperCase(),
-        email: lowerEmail,
-        role: dynamicRole,
-        accountStatus: 'ACTIVE',
-        assignedDepartmentIds: ['dept_cse'],
-        department: 'Computer Science and Engineering',
-        studentProfile: dynamicRole === 'STUDENT' ? {
-          registrationNumber: 'REG-' + Math.floor(100000 + Math.random() * 900000),
-          currentSemester: 5,
-          cgpa: 8.45,
-          totalCreditsEarned: 96,
-        } : undefined,
-      };
+        const mockUser = MOCK_USERS[lowerEmail] || {
+          id: 'usr_test',
+          _id: 'usr_test',
+          name: lowerEmail.split('@')[0].toUpperCase(),
+          email: lowerEmail,
+          role: dynamicRole,
+          accountStatus: 'ACTIVE',
+          assignedDepartmentIds: ['dept_cse'],
+          department: 'Computer Science and Engineering',
+        };
 
-      const accessToken = generateAccessToken(String(mockUser.id || mockUser._id), mockUser.role, mockUser.email);
-      const refreshToken = generateRefreshToken(String(mockUser.id || mockUser._id));
-      setCookies(res, accessToken, refreshToken);
+        const accessToken = generateAccessToken(String(mockUser.id || mockUser._id), mockUser.role, mockUser.email);
+        const refreshToken = generateRefreshToken(String(mockUser.id || mockUser._id));
+        setCookies(res, accessToken, refreshToken);
 
-      res.json({
-        success: true,
-        data: {
-          id: mockUser.id || mockUser._id,
-          name: mockUser.name,
-          email: mockUser.email,
-          role: mockUser.role,
-          accountStatus: mockUser.accountStatus,
-          assignedDepartmentIds: mockUser.assignedDepartmentIds || ['dept_cse'],
-          department: mockUser.department,
-          studentProfile: mockUser.studentProfile,
-        },
-        accessToken,
-      });
-      return;
+        res.json({
+          success: true,
+          data: {
+            id: mockUser.id || mockUser._id,
+            name: mockUser.name,
+            email: mockUser.email,
+            role: mockUser.role,
+            accountStatus: mockUser.accountStatus,
+            assignedDepartmentIds: mockUser.assignedDepartmentIds || ['dept_cse'],
+            department: mockUser.department,
+          },
+          accessToken,
+        });
+        return;
+      }
+      return next(new AppError('Authentication service is currently unavailable: Database connection is unavailable', 503));
     }
 
     const user = await User.findOne({
@@ -100,7 +97,11 @@ export async function login(req: Request, res: Response, next: NextFunction): Pr
         { email: lowerEmail },
         { customUserId: (email || '').toUpperCase().trim() },
       ],
-    }).select('+passwordHash +loginAttempts +lockUntil');
+    })
+      .select('+passwordHash +loginAttempts +lockUntil')
+      .populate('studentProfileId')
+      .populate('facultyProfileId')
+      .populate('assignedDepartmentIds');
 
     if (!user) {
       return next(new AppError('Invalid credentials', 401));
@@ -134,6 +135,11 @@ export async function login(req: Request, res: Response, next: NextFunction): Pr
     user.lastLoginAt = new Date();
     await user.save();
 
+    let studentProfile = user.studentProfileId;
+    if (!studentProfile && user.role === 'STUDENT') {
+      studentProfile = await StudentProfile.findOne({ userId: user._id }) as any;
+    }
+
     const accessToken = generateAccessToken(String(user._id), user.role, user.email);
     const refreshToken = generateRefreshToken(String(user._id));
 
@@ -149,6 +155,7 @@ export async function login(req: Request, res: Response, next: NextFunction): Pr
         accountStatus: user.accountStatus,
         assignedDepartmentIds: user.assignedDepartmentIds,
         customUserId: user.customUserId,
+        studentProfile: studentProfile || undefined,
         mustChangePassword: user.mustChangePassword,
       },
       accessToken,
@@ -167,25 +174,7 @@ export async function logout(_req: Request, res: Response): Promise<void> {
 export async function getMe(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
   try {
     if (mongoose.connection.readyState !== 1) {
-      const email = req.userEmail?.toLowerCase() || 'student1@cehp.edu';
-      const mock = MOCK_USERS[email] || {
-        id: req.userId || 'usr_dynamic',
-        _id: req.userId || 'usr_dynamic',
-        name: email.split('@')[0],
-        email: email,
-        role: req.userRole || 'STUDENT',
-        accountStatus: 'ACTIVE',
-        assignedDepartmentIds: ['dept_cse'],
-        department: 'Computer Science and Engineering',
-        studentProfile: {
-          registrationNumber: 'CSE2023001',
-          currentSemester: 5,
-          cgpa: 8.45,
-          totalCreditsEarned: 96,
-        },
-      };
-      res.json({ success: true, data: mock });
-      return;
+      return next(new AppError('Authentication service is currently unavailable: Database connection is unavailable', 503));
     }
 
     const user = await User.findById(req.userId)
@@ -197,6 +186,11 @@ export async function getMe(req: AuthRequest, res: Response, next: NextFunction)
       return next(new AppError('User not found', 404));
     }
 
+    let studentProfile = user.studentProfileId;
+    if (!studentProfile && user.role === 'STUDENT') {
+      studentProfile = await StudentProfile.findOne({ userId: user._id }) as any;
+    }
+
     res.json({
       success: true,
       data: {
@@ -206,7 +200,7 @@ export async function getMe(req: AuthRequest, res: Response, next: NextFunction)
         role: user.role,
         accountStatus: user.accountStatus,
         assignedDepartmentIds: user.assignedDepartmentIds,
-        studentProfile: user.studentProfileId,
+        studentProfile: studentProfile || undefined,
         facultyProfile: user.facultyProfileId,
         lastLoginAt: user.lastLoginAt,
       },
