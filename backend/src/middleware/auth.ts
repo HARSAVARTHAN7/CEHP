@@ -67,21 +67,17 @@ export function authenticate(req: AuthRequest, res: Response, next: NextFunction
       req.userEmail = decoded.email;
       return next();
     } catch (err) {
-      // In development, seamlessly maintain session from expired token
-      const decoded = jwt.decode(token) as JwtPayload | null;
-      if (decoded?.userId) {
-        req.userId = decoded.userId;
-        req.userRole = decoded.role || 'STUDENT';
-        req.userEmail = decoded.email || 'student1@cehp.edu';
-        return next();
-      }
-      if (process.env.NODE_ENV !== 'production') {
-        req.userId = '6acbc47d4a61e2c0ec376d57';
-        req.userRole = 'STUDENT';
-        req.userEmail = 'student1@cehp.edu';
-        return next();
-      }
+      // In development, gracefully tolerate expired tokens that were legitimately issued
       if (err instanceof jwt.TokenExpiredError) {
+        if (process.env.NODE_ENV !== 'production') {
+          const decoded = jwt.decode(token) as JwtPayload | null;
+          if (decoded?.userId) {
+            req.userId = decoded.userId;
+            req.userRole = decoded.role || 'STUDENT';
+            req.userEmail = decoded.email || 'student1@cehp.edu';
+            return next();
+          }
+        }
         return next(new AppError('Token expired', 401));
       }
       return next(new AppError('Invalid token', 401));

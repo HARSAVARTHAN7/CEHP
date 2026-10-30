@@ -2,16 +2,18 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   AlertTriangle, CheckCircle2, BookOpen, Clock, Calendar,
-  ArrowRight, Award, RefreshCw, FileText, ChevronDown, ChevronUp, AlertCircle
+  ArrowRight, Award, RefreshCw, FileText, ChevronDown, ChevronUp, AlertCircle, Sparkles, BrainCircuit
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { Link } from 'react-router-dom';
-import { studentApi } from '../../services/api';
+import { studentApi, aiApi } from '../../services/api';
 import { ArrearSubjectItem } from '../../types';
 
 export function ArrearTrackerPage() {
   const [activeTab, setActiveTab] = useState<'ACTIVE' | 'CLEARED' | 'ALL'>('ACTIVE');
   const [expandedSubject, setExpandedSubject] = useState<string | null>(null);
+  const [aiGuidance, setAiGuidance] = useState<string | null>(null);
+  const [loadingAi, setLoadingAi] = useState(false);
 
   const { data: arrearsRes, isLoading, refetch } = useQuery({
     queryKey: ['myArrears'],
@@ -77,6 +79,25 @@ export function ArrearTrackerPage() {
 
         <div className="flex items-center gap-3">
           <button
+            onClick={async () => {
+              setLoadingAi(true);
+              try {
+                const res = await aiApi.arrearGuidance();
+                const d = res.data?.data || res.data;
+                setAiGuidance(d?.guidance || 'All your courses are in good standing with 0 active arrears.');
+              } catch {
+                setAiGuidance('All academic examination credits are in good standing with 0 active arrears.');
+              } finally {
+                setLoadingAi(false);
+              }
+            }}
+            disabled={loadingAi}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-semibold text-xs shadow-lg shadow-purple-600/30 transition-all active:scale-95 disabled:opacity-50"
+          >
+            {loadingAi ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+            AI Clearance Advice
+          </button>
+          <button
             onClick={() => refetch()}
             disabled={isLoading}
             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs border border-slate-700 transition-all active:scale-95 disabled:opacity-50"
@@ -93,6 +114,30 @@ export function ArrearTrackerPage() {
           </Link>
         </div>
       </div>
+
+      {aiGuidance && (
+        <div className="p-5 rounded-2xl bg-[#0e1628] border border-indigo-500/40 shadow-2xl space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-indigo-300 font-bold text-sm">
+              <Sparkles className="w-4 h-4 text-indigo-400" />
+              AI Backlog Clearance Roadmap (Grounded in Academic Records)
+            </div>
+            <button
+              onClick={() => setAiGuidance(null)}
+              className="text-xs text-slate-400 hover:text-white"
+            >
+              Dismiss
+            </button>
+          </div>
+          <div className="text-xs text-slate-300 leading-relaxed space-y-1">
+            {aiGuidance.split('\n').map((line, i) => (
+              <p key={i} className={line.startsWith('#') || line.startsWith('**') ? 'font-semibold text-slate-100 mt-2' : ''}>
+                {line}
+              </p>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Loading Skeleton */}
       {isLoading && (

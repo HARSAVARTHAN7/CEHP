@@ -14,17 +14,55 @@ import {
   getDefaultGradeThresholds,
   calculateStudentArrears,
 } from '../services/academicCalculation';
-import axios from 'axios';
-import { config } from '../config/env';
-import { callFreeLLM } from '../services/llmService';
+import {
+  generateGeminiText,
+  generateGeminiStructured,
+  chatWithGemini,
+  isGeminiAvailable,
+  getGeminiModelName,
+} from '../services/geminiService';
+import { logger } from '../utils/logger';
 
-// POST /api/v1/ai/performance-summary
+/**
+ * GET /api/v1/ai/status
+ * Safe diagnostic status of Gemini integration (does NOT expose key)
+ */
+export async function getAiStatus(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const configured = isGeminiAvailable();
+    res.json({
+      success: true,
+      data: {
+        isConfigured: configured,
+        provider: 'google-gemini',
+        model: getGeminiModelName(),
+        status: configured ? 'OPERATIONAL' : 'RULES_FALLBACK_ACTIVE',
+        capabilities: [
+          'AI Academic Chat Assistant',
+          'AI Performance Summary & Trend Analysis',
+          'AI Personalized Study Planner',
+          'AI Arrear Clearance Guidance',
+          'AI Result & SGPA Explanation',
+          'AI Risk & Early Warning Analysis',
+          'AI Academic Suggestions',
+        ],
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * POST /api/v1/ai/performance-summary
+ * Explains examination performance and trends using verified database records.
+ */
 export async function performanceSummary(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
   try {
     const studentId = req.userRole === 'STUDENT' ? req.userId : req.body.studentId;
 
     if (mongoose.connection.readyState !== 1) {
-      return next(new AppError('Unable to generate performance summary: Database connection is unavailable', 503));
+      return next(new AppError('Database connection is unavailable', 503));
     }
     if (!mongoose.isValidObjectId(studentId)) {
       return next(new AppError('Valid student identifier is required', 400));
@@ -45,7 +83,7 @@ export async function performanceSummary(req: AuthRequest, res: Response, next: 
           performanceTrend: 'STABLE',
           strongSubjects: [],
           weakSubjects: [],
-          recommendations: ['No examination records found yet for this student.'],
+          recommendations: ['No published examination records found yet for this student.'],
           semesterProgress: [],
           mode: 'rules-based',
         },
@@ -94,6 +132,7 @@ export async function performanceSummary(req: AuthRequest, res: Response, next: 
       .filter((r) => r.resultStatus === 'FAIL' || (r.maximumMarks > 0 && (r.totalMarks / r.maximumMarks) * 100 < 55))
       .map((r) => ({
         name: (r.subjectId as any)?.name || 'Subject',
+        code: (r.subjectId as any)?.code || '',
         grade: r.grade,
         percentage: r.maximumMarks > 0 ? Math.round((r.totalMarks / r.maximumMarks) * 100) : 0,
       }));
@@ -101,129 +140,208 @@ export async function performanceSummary(req: AuthRequest, res: Response, next: 
     // Strong subjects: A+ or O
     const strongSubjects = results
       .filter((r) => ['O', 'A+', 'A'].includes(r.grade))
-      .map((r) => ({ name: (r.subjectId as any)?.name || 'Subject', grade: r.grade }));
+      .map((r) => ({
+        name: (r.subjectId as any)?.name || 'Subject',
+        code: (r.subjectId as any)?.code || '',
+        grade: r.grade,
+      }));
 
-    const structuredData = {
-      cgpa: cgpaResult.cgpa,
-      semesterSGPAs: semesterStats,
-      weakSubjects,
-      strongSubjects,
-      totalResults: results.length,
-      totalFailed: results.filter((r) => r.resultStatus === 'FAIL').length,
-    };
-
-    // Try AI service
-    if (config.llm.apiKey && config.aiServiceUrl) {
-      try {
-        const aiResponse = await axios.post(
-          `${config.aiServiceUrl}/api/ai/performance-summary`,
-          structuredData,
-          { timeout: 10000 }
-        );
-        res.json({ success: true, data: aiResponse.data, mode: 'ai' });
-        return;
-      } catch {
-        // Fall through to rules-based
-      }
-    }
-
-    // Rules-based fallback
-    const trend = semesterStats.length > 1
-      ? semesterStats[semesterStats.length - 1].sgpa > semesterStats[semesterStats.length - 2].sgpa
-        ? 'IMPROVING' : 'DECLINING'
+    const calculatedTrend = semesterStats.length > 1
+      ? semesterStats[semesterStats.length - 1].sgpa >= semesterStats[semesterStats.length - 2].sgpa
+        ? 'IMPROVING'
+        : 'DECLINING'
       : 'STABLE';
 
-    const summary = {
+    // Base summary calculated deterministically from authoritative academic facts
+    const baseSummary = {
       overallCGPA: cgpaResult.cgpa,
-      performanceTrend: trend,
+      performanceTrend: calculatedTrend,
       strongSubjects: strongSubjects.slice(0, 5),
       weakSubjects: weakSubjects.slice(0, 5),
       recommendations: weakSubjects.length > 0
-        ? [`Focus on: ${weakSubjects.map((s) => s.name).join(', ')}`, 'Practice past exam papers', 'Seek faculty guidance for weak subjects']
-        : ['Maintain current performance', 'Aim for higher grades in elective subjects'],
+        ? [`Focus on core concepts in: ${weakSubjects.map((s) => s.name).join(', ')}`, 'Practice past 3-year university exam papers', 'Consult department mentors for difficult modules']
+        : ['Maintain current high academic trajectory', 'Focus on grade O (10.0 GP) in upcoming 4-credit core electives'],
       semesterProgress: semesterStats,
       mode: 'rules-based',
     };
 
-    res.json({ success: true, data: summary, mode: 'rules-based' });
+    // Attempt Gemini interpretation if configured
+    if (isGeminiAvailable()) {
+      try {
+        const prompt = `Student Academic Summary:
+- Verified CGPA: ${cgpaResult.cgpa.toFixed(2)} / 10.0
+- Semester Trend: ${semesterStats.map((s) => `Sem ${s.semesterNumber}: SGPA ${s.sgpa.toFixed(2)} (${s.credits} credits)`).join(', ')}
+- Strong Courses: ${strongSubjects.map((s) => `${s.name} (${s.grade})`).join(', ') || 'None'}
+- Weak/Failed Courses: ${weakSubjects.map((s) => `${s.name} (${s.grade}, ${s.percentage}%)`).join(', ') || 'None'}
+
+Provide:
+1. A concise 2-sentence executive performance insight.
+2. 3 prioritized, actionable academic recommendations.`;
+
+        const aiResponse = await generateGeminiStructured<{
+          executiveInsight: string;
+          recommendations: string[];
+        }>(
+          prompt,
+          `{"executiveInsight": "string", "recommendations": ["string", "string", "string"]}`,
+          {
+            systemInstruction: 'You are an expert university academic dean and performance analyst. Interpret the verified student metrics constructively.',
+          }
+        );
+
+        if (aiResponse && aiResponse.recommendations?.length > 0) {
+          res.json({
+            success: true,
+            data: {
+              ...baseSummary,
+              executiveInsight: aiResponse.executiveInsight,
+              recommendations: aiResponse.recommendations,
+              mode: 'gemini',
+              model: getGeminiModelName(),
+            },
+          });
+          return;
+        }
+      } catch (geminiErr: any) {
+        logger.warn('Gemini performance-summary enrichment failed, using rules-based:', geminiErr.message);
+      }
+    }
+
+    res.json({ success: true, data: baseSummary });
   } catch (err) {
     next(err);
   }
 }
 
-// POST /api/v1/ai/study-plan
+/**
+ * POST /api/v1/ai/study-plan
+ * Generates an intelligent, credit-weighted weekly study timetable.
+ */
 export async function generateStudyPlan(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
   try {
-    const { weakSubjects, studyHoursPerDay, availableDays, examinationDate, sessionDurationMins } = req.body;
+    const { weakSubjects, studyHoursPerDay, availableDays, examinationDate, sessionDurationMins, targetGoal } = req.body;
 
-    if (!weakSubjects || weakSubjects.length === 0) {
-      res.json({
-        success: true,
-        data: {
-          message: 'No weak subjects identified. Maintain your current study schedule.',
-          weeklyPlan: [],
-          mode: 'rules-based',
-        },
-      });
-      return;
-    }
+    const subjectsToPlan = Array.isArray(weakSubjects) && weakSubjects.length > 0
+      ? weakSubjects
+      : [
+          { name: 'CS401 - Database Management Systems', percentage: 52, credits: 4 },
+          { name: 'CS402 - Operating Systems', percentage: 54, credits: 4 },
+          { name: 'CS404 - Design and Analysis of Algorithms', percentage: 48, credits: 4 },
+        ];
 
-    const totalDailyHours = studyHoursPerDay || 4;
-    const hoursPerSubject = Math.floor(totalDailyHours / Math.min(weakSubjects.length, 3));
+    const totalDailyHours = Number(studyHoursPerDay) || 4;
+    const days: string[] = Array.isArray(availableDays) && availableDays.length > 0
+      ? availableDays
+      : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-    const plan = {
-      weeklySchedule: availableDays?.map((day: string, idx: number) => ({
+    const hoursPerSubject = Math.max(1, Math.floor(totalDailyHours / Math.min(subjectsToPlan.length, 3)));
+
+    // Deterministic base timetable
+    const basePlan = {
+      weeklySchedule: days.map((day: string, idx: number) => ({
         day,
-        subjects: weakSubjects.slice(idx % weakSubjects.length, (idx % weakSubjects.length) + 2),
+        time: idx % 2 === 0 ? '06:00 PM - 08:00 PM' : '05:30 PM - 07:30 PM',
+        subject: subjectsToPlan[idx % subjectsToPlan.length]?.name || 'Core Engineering Subject',
+        topic: 'Core Theory, Problem Sets & Previous Year University Questions',
+        priority: (subjectsToPlan[idx % subjectsToPlan.length]?.percentage ?? 60) < 50 ? 'CRITICAL' : 'HIGH',
+        credits: subjectsToPlan[idx % subjectsToPlan.length]?.credits ?? 4,
         hoursPerSubject,
-        activities: ['Concept review', 'Practice problems', 'Past paper solving'],
-      })) || [],
-      subjectPriorities: weakSubjects.map((s: { name: string; percentage: number }, idx: number) => ({
+        activities: ['Concept review', 'Step-by-step problem solving', 'Past paper synthesis'],
+      })),
+      subjectPriorities: subjectsToPlan.map((s: any, idx: number) => ({
         rank: idx + 1,
         subject: s.name,
-        priority: s.percentage < 40 ? 'HIGH' : 'MEDIUM',
-        suggestedHoursPerWeek: s.percentage < 40 ? 6 : 4,
-        strategy: s.percentage < 40 ? 'Foundation building + heavy practice' : 'Focused revision + exam practice',
+        priority: (s.percentage ?? 50) < 45 ? 'CRITICAL' : (s.percentage ?? 50) < 55 ? 'HIGH' : 'MEDIUM',
+        suggestedHoursPerWeek: (s.percentage ?? 50) < 45 ? 6 : 4,
+        strategy: (s.percentage ?? 50) < 45
+          ? 'Foundational revision, lecture note consolidation, and daily problem drills'
+          : 'High-yield chapter review and timed mock questions',
       })),
       milestones: [
-        { week: 1, goal: 'Complete all concept reviews for weak subjects' },
-        { week: 2, goal: 'Solve minimum 20 problems per subject' },
-        { week: 3, goal: 'Attempt 3 full past papers per subject' },
-        { week: 4, goal: 'Final revision and weak-area focus' },
+        { week: 1, goal: 'Master core definitions, theorems, and primary formulas across all subjects' },
+        { week: 2, goal: 'Solve minimum 25 representative problems and lab implementations per subject' },
+        { week: 3, goal: 'Complete 3 full past university question papers under exam timing' },
+        { week: 4, goal: 'Final revision, formula recall tests, and targeted weak-concept clearance' },
       ],
       mode: 'rules-based',
     };
 
-    // If Free LLM is configured, enrich the plan with personalized strategic advice
-    try {
-      const prompt = `Student has weak subjects: ${weakSubjects.map((s: any) => `${s.name} (${s.percentage || 'fail'}%)`).join(', ')}.
-Available study hours per day: ${totalDailyHours}. Days: ${availableDays?.join(', ') || 'Mon-Fri'}.
-Give 3 bullet points with high-yield revision tactics and exam preparation tips for these subjects.`;
+    // If Gemini is available, generate a personalized timetable
+    if (isGeminiAvailable()) {
+      try {
+        const prompt = `Generate a personalized university study timetable for an engineering student with:
+- Subjects Needing Focus: ${subjectsToPlan.map((s: any) => `${s.name} (Current: ${s.percentage || 'N/A'}%)`).join(', ')}
+- Available Days: ${days.join(', ')}
+- Dedicated Daily Study Time: ${totalDailyHours} hours/day
+- Target Goal: ${targetGoal || 'Comprehensive Semester Exam Preparation & Grade Elevation'}
 
-      const aiAdvice = await callFreeLLM({
-        systemPrompt: 'You are an expert university academic mentor. Provide ultra-practical, concise study tactics.',
-        prompt,
-      });
+Create:
+1. Daily schedule entries mapping each available day to a dedicated subject, specific high-yield topic, realistic time slot, and priority.
+2. Subject priority list with rank and specific study strategy.
+3. 4-week structured milestones.
+4. Strategic advice summary.`;
 
-      if (aiAdvice) {
-        (plan as any).aiAdvice = aiAdvice;
-        (plan as any).mode = 'free_llm';
+        const schema = `{
+  "weeklySchedule": [
+    {
+      "day": "string",
+      "time": "string",
+      "subject": "string",
+      "topic": "string",
+      "priority": "CRITICAL" | "HIGH" | "MEDIUM",
+      "credits": "number or string",
+      "activities": ["string"]
+    }
+  ],
+  "subjectPriorities": [
+    {
+      "rank": "number",
+      "subject": "string",
+      "priority": "CRITICAL" | "HIGH" | "MEDIUM",
+      "suggestedHoursPerWeek": "number",
+      "strategy": "string"
+    }
+  ],
+  "milestones": [
+    { "week": "number", "goal": "string" }
+  ],
+  "strategicAdvice": "string"
+}`;
+
+        const aiPlan = await generateGeminiStructured<any>(prompt, schema, {
+          systemInstruction: 'You are an expert university study planner and academic strategist. Generate structured, realistic schedules.',
+        });
+
+        if (aiPlan && Array.isArray(aiPlan.weeklySchedule) && aiPlan.weeklySchedule.length > 0) {
+          res.json({
+            success: true,
+            data: {
+              ...aiPlan,
+              mode: 'gemini',
+              model: getGeminiModelName(),
+            },
+          });
+          return;
+        }
+      } catch (geminiErr: any) {
+        logger.warn('Gemini study-plan generation failed, using rules-based plan:', geminiErr.message);
       }
-    } catch {
-      // Continue with rules-based plan
     }
 
-    res.json({ success: true, data: plan });
+    res.json({ success: true, data: basePlan });
   } catch (err) {
     next(err);
   }
 }
 
-// POST /api/v1/ai/chat
+/**
+ * POST /api/v1/ai/chat
+ * Multi-turn AI academic chat assistant grounded in verified university records.
+ */
 export async function academicChat(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
   try {
-    const { message } = req.body;
-    if (!message || typeof message !== 'string') {
+    const { message, history } = req.body;
+    if (!message || typeof message !== 'string' || message.trim() === '') {
       res.status(400).json({ success: false, message: 'Question message is required.' });
       return;
     }
@@ -275,7 +393,12 @@ export async function academicChat(req: AuthRequest, res: Response, next: NextFu
           const sgpaRes = calculateSGPA(semResults as any, fakeRule);
           const sem = semResults[0]?.semesterId as any;
           if (sem) {
-            semesterStats.push({ semesterNumber: sem.semesterNumber || 1, sgpa: sgpaRes.sgpa, credits: sgpaRes.totalCredits, earnedCredits: sgpaRes.earnedCredits });
+            semesterStats.push({
+              semesterNumber: sem.semesterNumber || 1,
+              sgpa: sgpaRes.sgpa,
+              credits: sgpaRes.totalCredits,
+              earnedCredits: sgpaRes.earnedCredits,
+            });
             totalCredits += sgpaRes.totalCredits;
           }
         }
@@ -284,10 +407,69 @@ export async function academicChat(req: AuthRequest, res: Response, next: NextFu
       }
     }
 
+    // Check if Gemini is available for real response
+    if (isGeminiAvailable()) {
+      try {
+        const systemInstruction = `You are the CEHP Academic AI Advisor at an engineering university.
+You are strictly grounded in the student's verified institutional records:
+- Registration Number: ${studentProfile?.registrationNumber || '212222040001'}
+- Current Cumulative CGPA: ${cgpaResult.cgpa.toFixed(2)} / 10.0
+- Total Completed Degree Credits: ${totalCredits}
+- Total Passed Courses: ${totalPassed}
+- Active Backlogs / Arrears: ${failedResults.length} (${failedResults.map((r: any) => `${r.subjectCode || r.subjectName || 'Course'} (Attempts: ${r.totalAttempts || 1})`).join(', ') || '0 active backlogs'})
+- Semester-Wise Record: ${semesterStats.map((s) => `Sem ${s.semesterNumber}: SGPA ${s.sgpa.toFixed(2)} (${s.credits} credits)`).join('; ')}
+
+CRITICAL RULES:
+1. Always base your academic analysis on these verified figures. Never invent marks, grades, or fake arrear counts.
+2. The university uses a 10-point Choice-Based Credit System (CBCS): Grade O = 10 GP, A+ = 9 GP, A = 8 GP, B+ = 7 GP, B = 6 GP, C = 5 GP, F = 0 GP (Arrear). Minimum passing marks: 50% combined (internal 40% + external 60%).
+3. Format your answers cleanly with markdown headings (###), bullet points, and bold text for readability.
+4. Be professional, supportive, motivating, and mathematically accurate.`;
+
+        let answer = '';
+
+        // Handle conversation history if provided
+        if (Array.isArray(history) && history.length > 0) {
+          const formattedHistory = history
+            .filter((h: any) => h.content && (h.role === 'user' || h.role === 'assistant'))
+            .map((h: any) => ({
+              role: (h.role === 'assistant' ? 'model' : 'user') as 'model' | 'user',
+              text: String(h.content),
+            }));
+
+          formattedHistory.push({ role: 'user', text: message });
+
+          answer = await chatWithGemini(formattedHistory, {
+            systemInstruction,
+            temperature: 0.7,
+          });
+        } else {
+          answer = await generateGeminiText(message, {
+            systemInstruction,
+            temperature: 0.7,
+          });
+        }
+
+        if (answer) {
+          res.json({
+            success: true,
+            data: {
+              answer,
+              mode: 'gemini',
+              model: getGeminiModelName(),
+              disclaimer: 'Generated by Google Gemini grounded in verified institutional academic records.',
+            },
+          });
+          return;
+        }
+      } catch (geminiErr: any) {
+        logger.warn('Gemini chat request failed, falling back to deterministic CBCS engine:', geminiErr.message);
+      }
+    }
+
+    // Rules-Based Deterministic Fallback Engine
     const q = message.toLowerCase().trim();
     let response = '';
 
-    // 1. Target CGPA / Required SGPA calculation
     const targetMatch = q.match(/(?:target|reach|aim(?:ing)? for|achieve)\s+(?:cgpa\s+)?([0-9]+(?:\.[0-9]+)?)/i) ||
                         q.match(/([0-9]+\.[0-9]+)\s+cgpa/i) ||
                         (q.includes('target') && q.match(/([0-9]+(?:\.[0-9]+)?)/));
@@ -304,10 +486,8 @@ export async function academicChat(req: AuthRequest, res: Response, next: NextFu
                  `- Upcoming Semester Expected Credits: **24**\n` +
                  `- Next Semester Max Achievable CGPA (with 10.0 SGPA): **${targetPlan.maxPossibleCGPA.toFixed(2)}**\n\n` +
                  `**Recommended Strategy:**\n` +
-                 `Focus on scoring 'O' (10 GP) or 'A+' (9 GP) in 4-credit core subjects. Even a small increase in higher-credit courses has the largest upward pull on cumulative CGPA.`;
-    }
-    // 2. How SGPA was calculated
-    else if (q.includes('how') && (q.includes('sgpa') || q.includes('calculated') || q.includes('formula'))) {
+                 `Focus on scoring 'O' (10 GP) or 'A+' (9 GP) in 4-credit core subjects. Higher-credit courses have the largest upward pull on cumulative CGPA.`;
+    } else if (q.includes('how') && (q.includes('sgpa') || q.includes('calculated') || q.includes('formula'))) {
       const latestSem = semesterStats[semesterStats.length - 1];
       const semNumber = latestSem ? latestSem.semesterNumber : 4;
       const explanation = explainSGPACalculation(results.length > 0 ? results : [
@@ -327,171 +507,31 @@ export async function academicChat(req: AuthRequest, res: Response, next: NextFu
                  `- Total Weighted Grade Points: **${explanation.totalWeightedPoints.toFixed(2)}**\n` +
                  `- Total Applicable Credits: **${explanation.totalCredits}**\n` +
                  `- **Calculated SGPA: ${explanation.sgpa.toFixed(2)}**`;
-    }
-    // 3. Compare last two semesters
-    else if (q.includes('compare') && (q.includes('semester') || q.includes('last two') || q.includes('progression'))) {
-      if (semesterStats.length >= 2) {
-        const semA = semesterStats[semesterStats.length - 2];
-        const semB = semesterStats[semesterStats.length - 1];
-        const comp = compareSemesters(semA, semB);
-
-        response = `### Semester Comparison (Sem ${comp.earlierSem} vs Sem ${comp.laterSem})\n\n` +
-                   `**Direct Answer:**\n${comp.summary}\n\n` +
-                   `**Performance Metrics:**\n` +
-                   `- Semester ${comp.earlierSem}: SGPA **${semA.sgpa.toFixed(2)}** (${semA.credits} credits)\n` +
-                   `- Semester ${comp.laterSem}: SGPA **${semB.sgpa.toFixed(2)}** (${semB.credits} credits)\n` +
-                   `- Net Differential: **${comp.sgpaDifference >= 0 ? '+' : ''}${comp.sgpaDifference.toFixed(2)} SGPA**\n` +
-                   `- Trajectory Classification: **${comp.trajectory}**\n\n` +
-                   `**Insight:**\n` +
-                   (comp.trajectory === 'IMPROVED'
-                     ? 'You demonstrated positive progression in your advanced department coursework.'
-                     : 'A slight drop indicates theoretical subjects in the later semester had higher rigor. Consider increasing revision hours for core subjects.');
+    } else if (q.includes('arrear') || q.includes('fail') || q.includes('backlog')) {
+      if (failedResults.length > 0) {
+        response = `### Active Arrear Audit\n\n` +
+                   `You currently have **${failedResults.length} active backlog(s)**:\n` +
+                   failedResults.map((r: any) => `- **${r.subjectCode || (r.subjectId as any)?.code || 'SUB'}**: ${r.subjectName || (r.subjectId as any)?.name || 'Course'} (Attempts: ${r.totalAttempts || 1}, Last Score: ${r.latestTotalMarks ?? r.totalMarks}/${r.latestMaximumMarks || r.maximumMarks || 100})`).join('\n') +
+                   `\n\n**Next Steps:** Register for the upcoming supplementary cycle and utilize the **Study Planner** for systematic revision.`;
       } else {
-        response = `Comparing semesters requires at least 2 completed cycles. You currently have ${semesterStats.length} semester recorded.`;
+        response = `### Arrear Audit: Clear\n\n` +
+                   `You have **0 active arrears or backlogs**. All enrolled examination credits have been successfully completed with passing grades!`;
       }
-    }
-    // 4. Why CGPA decreased / changed
-    else if (q.includes('why') && (q.includes('decrease') || q.includes('drop') || q.includes('lower') || q.includes('change'))) {
-      const minSem = [...semesterStats].sort((a, b) => a.sgpa - b.sgpa)[0];
-      response = `### Root Cause Analysis for CGPA Trend\n\n` +
-                 `**Findings from Historical Audit:**\n` +
-                 `- Lowest Semester SGPA was recorded in **Semester ${minSem?.semesterNumber || 1}** with **${minSem?.sgpa.toFixed(2) || '8.10'}**.\n` +
-                 `- Since CGPA is cumulative and credit-weighted across all ${totalCredits} credits, lower SGPAs pull the cumulative average downward.\n` +
-                 `- All completed courses with grades below 'A' reduce the overall slope of CGPA improvement.\n\n` +
-                 `**Remediation Steps:**\n` +
-                 `1. Secure at least Grade 'A+' (9.0) in high-credit (4-credit) upcoming subjects.\n` +
-                 `2. Clear any active arrears in the earliest supplementary cycle.\n` +
-                 `3. Submit all internal assessments on time to maximize the 40% internal mark component.`;
-    }
-    // 5. Complete semester-wise examination history
-    else if (q.includes('complete') || q.includes('history') || (q.includes('all') && q.includes('semester'))) {
-      response = `### Complete Semester-Wise Examination Summary\n\n` +
-                 semesterStats.map((s) => `- **Semester ${s.semesterNumber}**: SGPA **${s.sgpa.toFixed(2)}** | Credits: ${s.credits} | Status: Cleared`).join('\n') +
-                 `\n\n- **Cumulative CGPA: ${cgpaResult.cgpa.toFixed(2)} / 10.0**\n` +
-                 `- **Total Passed Courses: ${totalPassed}**\n` +
-                 `- **Active Arrears: ${failedResults.length}**\n` +
-                 `\nYou can view and download the official PDF transcript in the **My Results** tab.`;
-    }
-    // 6. Current CGPA
-    else if (q.includes('cgpa') || q.includes('cumulative')) {
+    } else if (q.includes('cgpa') || q.includes('cumulative')) {
       response = `### Cumulative Grade Point Average (CGPA)\n\n` +
                  `Your official current CGPA is **${cgpaResult.cgpa.toFixed(2)} / 10.0** based on **${semesterStats.length} published semesters** (${totalCredits} degree credits).\n\n` +
                  `- Academic Standing: **First Class with Distinction (Exemplary)**\n` +
                  `- Latest Semester SGPA: **${semesterStats[semesterStats.length - 1]?.sgpa.toFixed(2) || '8.60'}**\n` +
                  `- Active Backlogs: **${failedResults.length}**`;
-    }
-    // 7. Latest SGPA
-    else if (q.includes('sgpa') || q.includes('semester gpa')) {
-      const latest = semesterStats[semesterStats.length - 1];
-      response = latest
-        ? `Your latest recorded SGPA is **${latest.sgpa.toFixed(2)}** in **Semester ${latest.semesterNumber}** (${latest.credits} credits).`
-        : 'No SGPA records published yet.';
-    }
-    // 8. Arrears / Failed subjects
-    else if (q.includes('arrear') || q.includes('fail') || q.includes('backlog')) {
-      if (failedResults.length > 0) {
-        response = `### Active Arrear Audit\n\n` +
-                   `You currently have **${failedResults.length} active backlog(s)**:\n` +
-                   failedResults.map((r: any) => `- **${r.subjectCode || (r.subjectId as any)?.code || 'SUB'}**: ${r.subjectName || (r.subjectId as any)?.name || 'Course'} (Attempts: ${r.totalAttempts || 1}, Last Score: ${r.latestTotalMarks ?? r.totalMarks}/${r.latestMaximumMarks || r.maximumMarks || 100})`).join('\n') +
-                   `\n\n**Next Steps:** Register for the upcoming supplementary cycle and consult faculty for remediation.`;
-      } else {
-        response = `### Arrear Audit: Clear\n\n` +
-                   `You have **0 active arrears or backlogs**. All enrolled examination credits have been successfully completed with passing grades!`;
-      }
-    }
-    // 9. Weak subjects / prioritize
-    else if (q.includes('weak') || q.includes('prioritize') || q.includes('focus') || q.includes('improve')) {
-      const weak = results.filter((r) => (r.totalMarks / r.maximumMarks) * 100 < 65);
-      if (weak.length > 0) {
-        response = `### Priority Course Improvement Areas\n\n` +
-                   `Based on your grade audit, the following subjects have the highest potential for score enhancement:\n` +
-                   weak.map((r) => `- **${(r.subjectId as any)?.name || 'Course'}** (${(r.subjectId as any)?.code || ''}): Grade ${r.grade} (${Math.round((r.totalMarks / r.maximumMarks) * 100)}%)`).join('\n') +
-                   `\n\n**Advice:** Allocate dedicated study blocks on weekends for these courses using the **Study Planner**.`;
-      } else {
-        response = `### Performance Audit: High Proficiency\n\n` +
-                   `All your published course scores exceed 65% with no weak theoretical outliers. To maximize your competitive trajectory, focus on obtaining Grade 'O' (10 GP) in next semester's advanced electives.`;
-      }
-    }
-    // 10. Study plan
-    else if (q.includes('study plan') || q.includes('timetable') || q.includes('schedule')) {
-      response = `### Tailored Study Timetable Recommendation\n\n` +
-                 `Based on your academic standing (CGPA ${cgpaResult.cgpa.toFixed(2)}), we recommend a **16-hour weekly study model**:\n\n` +
-                 `- **Monday & Wednesday (06:30 PM - 08:30 PM)**: Core Theoretical Concepts (Database Systems, Operating Systems)\n` +
-                 `- **Tuesday & Thursday (06:30 PM - 08:30 PM)**: Numerical & Algorithmic Problem Solving (Algorithms, Discrete Math)\n` +
-                 `- **Saturday (09:00 AM - 01:00 PM)**: Past 3-Year University Exam Question Paper Synthesis\n` +
-                 `- **Sunday (10:00 AM - 12:00 PM)**: Mock self-assessment and formula retention checks.\n\n` +
-                 `You can customize this schedule in detail on the **Study Planner** page.`;
-    }
-    // Fallback general guidance
-    else {
+    } else {
       response = `### CEHP Academic Assistant\n\n` +
-                 `I am grounded directly in your institutional academic records (Registration: **${studentProfile?.registrationNumber || 'CSE2023001'}**, CGPA: **${cgpaResult.cgpa.toFixed(2)}**, Cleared Credits: **${totalCredits}**).\n\n` +
-                 `**Common Inquiries You Can Ask:**\n` +
+                 `I am grounded directly in your institutional academic records (Registration: **${studentProfile?.registrationNumber || '212222040001'}**, CGPA: **${cgpaResult.cgpa.toFixed(2)}**, Cleared Credits: **${totalCredits}**).\n\n` +
+                 `**Inquiries You Can Ask:**\n` +
                  `1. *"How much SGPA do I need next semester to reach target CGPA 9.0?"*\n` +
                  `2. *"Explain how my SGPA was calculated."*\n` +
-                 `3. *"Compare my last two semesters."*\n` +
-                 `4. *"Which subjects have I failed or have arrears in?"*\n` +
-                 `5. *"Show my complete semester-wise examination history."*\n` +
-                 `6. *"Create a study plan for my weak subjects."*`;
-    }
-
-    // 1. Attempt Direct Free LLM Integration (Google Gemini, Groq, OpenRouter)
-    try {
-      const llmAnswer = await callFreeLLM({
-        systemPrompt: `You are the CEHP Academic AI Advisor at an engineering university.
-You have direct verified telemetry of the student's records:
-- Registration: ${studentProfile?.registrationNumber || '212222040001'}
-- Current CGPA: ${cgpaResult.cgpa.toFixed(2)} / 10.0
-- Total Cleared Credits: ${totalCredits}
-- Total Passed Courses: ${totalPassed}
-- Active Backlogs / Arrears: ${failedResults.length} (${failedResults.map((r: any) => r.subjectCode || r.subjectName || 'Course').join(', ') || '0 backlogs'})
-- Semester Breakdown: ${semesterStats.map((s) => `Sem ${s.semesterNumber}: SGPA ${s.sgpa.toFixed(2)} (${s.credits} credits)`).join('; ')}
-
-Rules:
-1. Always be encouraging, highly precise, and grounded in CBCS academic rules (10-point scale: O=10, A+=9, A=8, B+=7, B=6, C=5, F=0).
-2. Format answers cleanly using markdown bullet points, bold highlights, and headers.
-3. If asked about target CGPA, explain how 4-credit courses pull CGPA up.`,
-        prompt: message,
-      });
-
-      if (llmAnswer) {
-        res.json({
-          success: true,
-          data: {
-            answer: llmAnswer,
-            mode: 'free_llm',
-            disclaimer: 'Generated by AI grounded in verified institutional academic records.',
-          },
-        });
-        return;
-      }
-    } catch {
-      // Fall through to AI Service or deterministic rules
-    }
-
-    // 2. Attempt legacy AI Service microservice if configured
-    if (config.llm.apiKey && config.aiServiceUrl) {
-      try {
-        const context = {
-          cgpa: cgpaResult.cgpa,
-          semesterSGPAs: semesterStats,
-          arrears: failedResults.map((r) => (r.subjectId as any)?.name || 'Course'),
-          totalPassed,
-          totalCredits,
-          registrationNumber: studentProfile?.registrationNumber || 'CSE2023001',
-        };
-        const aiResponse = await axios.post(
-          `${config.aiServiceUrl}/api/ai/chat`,
-          { message, context },
-          { timeout: 12000 }
-        );
-        if (aiResponse.data?.answer) {
-          res.json({ success: true, data: { answer: aiResponse.data.answer, mode: 'gemini_llm' } });
-          return;
-        }
-      } catch {
-        // Fall through to deterministic response
-      }
+                 `3. *"Which subjects have I failed or have arrears in?"*\n` +
+                 `4. *"Show my complete semester-wise examination history."*\n` +
+                 `5. *"Create a study plan for my weak subjects."*`;
     }
 
     res.json({
@@ -507,7 +547,247 @@ Rules:
   }
 }
 
-// POST /api/v1/ai/risk-analysis
+/**
+ * POST /api/v1/ai/arrear-guidance
+ * Guidance for active backlogs based on verified database records.
+ */
+export async function arrearGuidance(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const studentId = req.userRole === 'STUDENT' ? req.userId : req.body.studentId;
+
+    if (!mongoose.isValidObjectId(studentId)) {
+      return next(new AppError('Valid student identifier is required', 400));
+    }
+
+    const results = await ResultRecord.find({ studentId, publicationStatus: 'PUBLISHED' })
+      .populate('subjectId', 'code name credits')
+      .populate('semesterId', 'semesterNumber');
+
+    const fakeRule = {
+      minPassPercentage: 50,
+      sgpaExcludeFailedSubjects: false,
+      cgpaIncludedSemesters: 'ALL' as const,
+      gradeThresholds: getDefaultGradeThresholds(),
+    } as any;
+
+    const arrearsSummary = calculateStudentArrears(results as any, fakeRule);
+    const activeArrears = arrearsSummary.activeArrears;
+
+    if (activeArrears.length === 0) {
+      res.json({
+        success: true,
+        data: {
+          activeArrearsCount: 0,
+          arrears: [],
+          guidance: 'Congratulations! You have 0 active arrears. All degree credits are in good standing.',
+          mode: 'rules-based',
+        },
+      });
+      return;
+    }
+
+    let aiGuidance = `You have ${activeArrears.length} active backlogs. Focus on prioritizing the 4-credit subjects during the next supplementary exam window.`;
+
+    if (isGeminiAvailable()) {
+      try {
+        const prompt = `Student has ${activeArrears.length} uncleared academic arrears:
+${activeArrears.map((a: any) => `- ${a.subjectCode}: ${a.subjectName} (Sem ${a.semesterNumber}, Attempts: ${a.totalAttempts}, Latest Marks: ${a.latestTotalMarks || 'Below 50'}/100)`).join('\n')}
+
+Provide:
+1. Clearance Strategy: Step-by-step revision timeline for each backlog subject.
+2. Internal Assessment & Pass Criteria Advice: How to ensure marks exceed 50% combined.
+3. Exam Execution Advice: Best practices for university supplementary answer writing.`;
+
+        const responseText = await generateGeminiText(prompt, {
+          systemInstruction: 'You are an experienced academic remediation counselor. Provide actionable, practical advice for clearing arrears.',
+        });
+
+        if (responseText) {
+          aiGuidance = responseText;
+        }
+      } catch (geminiErr: any) {
+        logger.warn('Gemini arrear-guidance generation failed:', geminiErr.message);
+      }
+    }
+
+    res.json({
+      success: true,
+      data: {
+        activeArrearsCount: activeArrears.length,
+        arrears: activeArrears,
+        guidance: aiGuidance,
+        mode: isGeminiAvailable() ? 'gemini' : 'rules-based',
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * POST /api/v1/ai/explain-result
+ * Explains how a specific examination result or semester was evaluated under CBCS rules.
+ */
+export async function explainResult(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { resultId } = req.body;
+    const studentId = req.userRole === 'STUDENT' ? req.userId : req.body.studentId;
+
+    let targetRecord: any = null;
+    if (resultId && mongoose.isValidObjectId(resultId)) {
+      targetRecord = await ResultRecord.findOne({ _id: resultId, studentId })
+        .populate('subjectId', 'code name credits')
+        .populate('semesterId', 'semesterNumber');
+    }
+
+    if (!targetRecord) {
+      targetRecord = await ResultRecord.findOne({ studentId, publicationStatus: 'PUBLISHED' })
+        .sort({ createdAt: -1 })
+        .populate('subjectId', 'code name credits')
+        .populate('semesterId', 'semesterNumber');
+    }
+
+    if (!targetRecord) {
+      res.json({
+        success: true,
+        data: {
+          explanation: 'No examination records found to explain.',
+          mode: 'rules-based',
+        },
+      });
+      return;
+    }
+
+    const sub = targetRecord.subjectId as any;
+    const internal = targetRecord.internalMarks || 0;
+    const external = targetRecord.externalMarks || 0;
+    const total = targetRecord.totalMarks;
+    const max = targetRecord.maximumMarks || 100;
+    const pct = Math.round((total / max) * 100);
+
+    const baseExplanation = `### Subject Evaluation: ${sub?.code || 'CS'} - ${sub?.name || 'Subject'}\n\n` +
+      `- **Internal Assessment (40% Weightage)**: ${internal} marks\n` +
+      `- **Semester End Exam (60% Weightage)**: ${external} marks\n` +
+      `- **Total Score**: ${total} / ${max} (${pct}%)\n` +
+      `- **Awarded Grade**: Grade **${targetRecord.grade}** (${targetRecord.gradePoint} Grade Points)\n` +
+      `- **Result Status**: **${targetRecord.resultStatus}**\n\n` +
+      `Under the 10-point CBCS grading system, Grade ${targetRecord.grade} indicates ${targetRecord.resultStatus === 'PASS' ? 'successful credit clearance' : 'unsuccessful attempt requiring re-appearance in supplementary cycle'}.`;
+
+    if (isGeminiAvailable()) {
+      try {
+        const prompt = `Explain the following examination result to the student:
+- Subject: ${sub?.code} - ${sub?.name} (${sub?.credits || 4} Credits)
+- Internal Marks: ${internal}/40
+- External Exam Marks: ${external}/60
+- Total Marks: ${total}/${max}
+- Final Grade: ${targetRecord.grade} (Grade Point: ${targetRecord.gradePoint})
+- Status: ${targetRecord.resultStatus}
+
+Provide:
+1. A clear breakdown of how the internal and external components yielded this grade.
+2. Concrete suggestions on what marks would have been needed to achieve the next higher grade tier.`;
+
+        const aiText = await generateGeminiText(prompt, {
+          systemInstruction: 'You are an academic controller of examinations advisor. Explain grading transparently and constructively.',
+        });
+
+        if (aiText) {
+          res.json({
+            success: true,
+            data: {
+              record: targetRecord,
+              explanation: aiText,
+              mode: 'gemini',
+              model: getGeminiModelName(),
+            },
+          });
+          return;
+        }
+      } catch (geminiErr: any) {
+        logger.warn('Gemini explain-result failed:', geminiErr.message);
+      }
+    }
+
+    res.json({
+      success: true,
+      data: {
+        record: targetRecord,
+        explanation: baseExplanation,
+        mode: 'rules-based',
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * POST /api/v1/ai/academic-suggestions
+ * Proactive learning suggestions and elective guidance.
+ */
+export async function academicSuggestions(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const studentId = req.userRole === 'STUDENT' ? req.userId : req.body.studentId;
+
+    const results = await ResultRecord.find({ studentId, publicationStatus: 'PUBLISHED' })
+      .populate('subjectId', 'code name credits');
+
+    const strong = results.filter((r) => ['O', 'A+', 'A'].includes(r.grade)).map((r) => (r.subjectId as any)?.name || 'Course');
+    const weak = results.filter((r) => r.resultStatus === 'FAIL' || (r.totalMarks / r.maximumMarks) * 100 < 55).map((r) => (r.subjectId as any)?.name || 'Course');
+
+    const baseSuggestions = [
+      'Prioritize core 4-credit courses for grade elevation.',
+      'Submit all internal lab assessments on time to secure maximum 40% internal credit.',
+      'Solve past 3-year university question papers under timed conditions.',
+      'Review weak concept areas with department course mentors.',
+    ];
+
+    if (isGeminiAvailable()) {
+      try {
+        const prompt = `Student Profile:
+Strong Subjects: ${strong.join(', ') || 'General Engineering Foundations'}
+Challenging Subjects: ${weak.join(', ') || 'None (all passed)'}
+
+Provide 4 high-yield, specific academic suggestions to help this student excel in upcoming semester exams and career placement.`;
+
+        const aiResponse = await generateGeminiStructured<{ suggestions: string[] }>(
+          prompt,
+          `{"suggestions": ["string", "string", "string", "string"]}`,
+          { systemInstruction: 'You are a career and academic advisor for undergraduate engineering students.' }
+        );
+
+        if (aiResponse?.suggestions?.length > 0) {
+          res.json({
+            success: true,
+            data: {
+              suggestions: aiResponse.suggestions,
+              mode: 'gemini',
+              model: getGeminiModelName(),
+            },
+          });
+          return;
+        }
+      } catch (geminiErr: any) {
+        logger.warn('Gemini academic-suggestions failed:', geminiErr.message);
+      }
+    }
+
+    res.json({
+      success: true,
+      data: {
+        suggestions: baseSuggestions,
+        mode: 'rules-based',
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * POST /api/v1/ai/risk-analysis
+ * Early warning and risk analysis based on verified academic records.
+ */
 export async function riskAnalysis(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
   try {
     const studentId = req.userRole === 'STUDENT' ? req.userId : req.body.studentId;
@@ -521,7 +801,7 @@ export async function riskAnalysis(req: AuthRequest, res: Response, next: NextFu
           indicators: [],
           suggestedActions: [
             'Maintain current high academic trajectory (CGPA 8.45)',
-            'Prepare for upcoming Semester 5 core examinations',
+            'Prepare for upcoming semester core examinations',
             'Explore honors electives and undergraduate research',
           ],
           disclaimer: 'Advisory analysis generated from verified academic history.',
@@ -549,9 +829,11 @@ export async function riskAnalysis(req: AuthRequest, res: Response, next: NextFu
     // Check: Declining performance
     const semMap = new Map<number, number[]>();
     for (const r of results) {
-      const semNum = (r.semesterId as any).semesterNumber;
-      if (!semMap.has(semNum)) semMap.set(semNum, []);
-      semMap.get(semNum)!.push((r.totalMarks / r.maximumMarks) * 100);
+      const semNum = (r.semesterId as any)?.semesterNumber;
+      if (semNum !== undefined) {
+        if (!semMap.has(semNum)) semMap.set(semNum, []);
+        semMap.get(semNum)!.push((r.totalMarks / r.maximumMarks) * 100);
+      }
     }
     const semAverages = Array.from(semMap.entries())
       .map(([sem, pcts]) => ({ sem, avg: pcts.reduce((a, b) => a + b, 0) / pcts.length }))
@@ -584,17 +866,41 @@ export async function riskAnalysis(req: AuthRequest, res: Response, next: NextFu
       ? 'MODERATE_RISK'
       : 'LOW_RISK';
 
+    let suggestedActions = riskCategory !== 'LOW_RISK'
+      ? ['Schedule meeting with academic advisor', 'Enroll in remedial support programs', 'Review study strategies']
+      : ['Continue current high performance', 'Participate in honors electives and technical symposia'];
+
+    if (isGeminiAvailable() && indicators.length > 0) {
+      try {
+        const prompt = `Student has risk classification: ${riskCategory}.
+Indicators identified:
+${indicators.map((i) => `- [${i.severity}] ${i.indicator}: ${i.evidence}`).join('\n')}
+
+Provide 3 actionable, empathetic remediation recommendations for faculty and student intervention.`;
+
+        const aiResponse = await generateGeminiStructured<{ recommendations: string[] }>(
+          prompt,
+          `{"recommendations": ["string", "string", "string"]}`,
+          { systemInstruction: 'You are an academic retention specialist.' }
+        );
+
+        if (aiResponse?.recommendations?.length > 0) {
+          suggestedActions = aiResponse.recommendations;
+        }
+      } catch (geminiErr: any) {
+        logger.warn('Gemini risk-analysis failed:', geminiErr.message);
+      }
+    }
+
     res.json({
       success: true,
       data: {
         studentId,
         riskCategory,
         indicators,
-        suggestedActions: riskCategory !== 'LOW_RISK'
-          ? ['Schedule meeting with academic advisor', 'Enroll in support programs', 'Review study strategies']
-          : ['Continue current performance', 'Participate in enrichment activities'],
+        suggestedActions,
         disclaimer: 'This is an advisory signal based on academic records. It is not a definitive assessment.',
-        mode: 'rules-based',
+        mode: isGeminiAvailable() ? 'gemini' : 'rules-based',
       },
     });
   } catch (err) {

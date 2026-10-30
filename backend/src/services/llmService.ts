@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { config } from '../config/env';
 import { logger } from '../utils/logger';
+import { generateGeminiText, isGeminiAvailable } from './geminiService';
 
 export interface LLMRequestOptions {
   prompt: string;
@@ -11,16 +12,14 @@ export interface LLMRequestOptions {
 
 /**
  * Universal free & low-latency LLM Caller
- * Supports:
- * 1. Google Gemini (Free at aistudio.google.com)
- * 2. Groq Cloud (Free at console.groq.com)
- * 3. OpenAI / OpenRouter compatible APIs
+ * Prioritizes Google Gemini via the official SDK in geminiService.ts
  */
 export async function callFreeLLM(options: LLMRequestOptions): Promise<string | null> {
   const apiKey =
     process.env.GEMINI_API_KEY ||
     process.env.GROQ_API_KEY ||
     process.env.LLM_API_KEY ||
+    config.gemini.apiKey ||
     config.llm.apiKey;
 
   if (!apiKey || apiKey.trim() === '') {
@@ -28,45 +27,25 @@ export async function callFreeLLM(options: LLMRequestOptions): Promise<string | 
   }
 
   const trimmedKey = apiKey.trim();
-  const provider = (process.env.LLM_PROVIDER || config.llm.provider || '').toLowerCase();
+  const provider = (process.env.LLM_PROVIDER || config.llm.provider || 'gemini').toLowerCase();
 
-  // 1. Google Gemini (Default if key starts with AIzaSy or provider is gemini)
-  if (provider === 'gemini' || trimmedKey.startsWith('AIzaSy')) {
+  // 1. Google Gemini (Preferred primary provider)
+  if (provider === 'gemini' || isGeminiAvailable() || trimmedKey.startsWith('AIzaSy')) {
     try {
-      const model = process.env.LLM_MODEL || config.llm.model || 'gemini-1.5-flash';
-      const cleanModel = model.startsWith('gemini') ? model : 'gemini-1.5-flash';
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${cleanModel}:generateContent?key=${trimmedKey}`;
-
-      const contents: any[] = [];
-      if (options.systemPrompt) {
-        contents.push({
-          role: 'user',
-          parts: [{ text: `[System Instruction]: ${options.systemPrompt}\n\n[User Query]: ${options.prompt}` }],
-        });
-      } else {
-        contents.push({
-          role: 'user',
-          parts: [{ text: options.prompt }],
-        });
-      }
-
-      const res = await axios.post(
-        url,
-        { contents },
-        { headers: { 'Content-Type': 'application/json' }, timeout: 15000 }
-      );
-
-      const candidate = res.data?.candidates?.[0];
-      const text = candidate?.content?.parts?.[0]?.text;
+      const text = await generateGeminiText(options.prompt, {
+        systemInstruction: options.systemPrompt,
+        temperature: options.temperature,
+        maxOutputTokens: options.maxTokens,
+      });
       if (text) {
-        return text.trim();
+        return text;
       }
     } catch (err: any) {
-      logger.warn('Google Gemini API call failed:', err.response?.data || err.message);
+      logger.warn('Gemini call failed in callFreeLLM:', err.message);
     }
   }
 
-  // 2. Groq Cloud (Free fast Llama-3.3-70b at console.groq.com)
+  // 2. Groq Cloud (Secondary fallback)
   if (provider === 'groq' || trimmedKey.startsWith('gsk_')) {
     try {
       const model = process.env.LLM_MODEL || 'llama-3.3-70b-versatile';

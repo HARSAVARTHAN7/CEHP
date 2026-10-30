@@ -192,9 +192,14 @@ export const notificationApi = {
 
 // ---- AI ----
 export const aiApi = {
+  status: () => api.get('/ai/status'),
   performanceSummary: () => api.post('/ai/performance-summary'),
   studyPlan: (data: Record<string, unknown>) => api.post('/ai/study-plan', data),
-  chat: (message: string) => api.post('/ai/chat', { message }),
+  chat: (message: string, history?: { role: string; content: string }[]) =>
+    api.post('/ai/chat', { message, history }),
   riskAnalysis: (studentId?: string) =>
     api.post('/ai/risk-analysis', studentId ? { studentId } : {}),
+  arrearGuidance: () => api.post('/ai/arrear-guidance'),
+  explainResult: (resultId?: string) => api.post('/ai/explain-result', { resultId }),
+  academicSuggestions: () => api.post('/ai/academic-suggestions'),
 };

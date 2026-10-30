@@ -1,7 +1,16 @@
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import { authenticate } from '../middleware/auth';
-import { performanceSummary, generateStudyPlan, academicChat, riskAnalysis } from '../controllers/aiController';
+import {
+  getAiStatus,
+  performanceSummary,
+  generateStudyPlan,
+  academicChat,
+  riskAnalysis,
+  arrearGuidance,
+  explainResult,
+  academicSuggestions,
+} from '../controllers/aiController';
 
 const router = Router();
 router.use(authenticate);
@@ -14,9 +23,16 @@ const aiChatLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+// Diagnostic status
+router.get('/status', getAiStatus);
+
+// Core AI features
 router.post('/performance-summary', performanceSummary);
 router.post('/study-plan', generateStudyPlan);
 router.post('/chat', aiChatLimiter, academicChat);
 router.post('/risk-analysis', riskAnalysis);
+router.post('/arrear-guidance', arrearGuidance);
+router.post('/explain-result', explainResult);
+router.post('/academic-suggestions', academicSuggestions);
 
 export default router;
