@@ -22,22 +22,35 @@ import {
   isGeminiAvailable,
   getGeminiModelName,
 } from '../services/geminiService';
+import {
+  generateGroqText,
+  generateGroqStructured,
+  chatWithGroq,
+  isGroqAvailable,
+  getGroqModelName,
+} from '../services/groqService';
 import { logger } from '../utils/logger';
 
 /**
  * GET /api/v1/ai/status
- * Safe diagnostic status of Gemini integration (does NOT expose key)
+ * Safe diagnostic status of Groq and Gemini integrations (does NOT expose keys)
  */
 export async function getAiStatus(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
   try {
-    const configured = isGeminiAvailable();
+    const groqConfigured = isGroqAvailable();
+    const geminiConfigured = isGeminiAvailable();
+    const activeProvider = groqConfigured ? 'groq' : geminiConfigured ? 'google-gemini' : 'institutional-rules-engine';
+    const activeModel = groqConfigured ? getGroqModelName() : geminiConfigured ? getGeminiModelName() : 'institutional-rules-engine';
+
     res.json({
       success: true,
       data: {
-        isConfigured: configured,
-        provider: 'google-gemini',
-        model: getGeminiModelName(),
-        status: configured ? 'OPERATIONAL' : 'RULES_FALLBACK_ACTIVE',
+        isConfigured: groqConfigured || geminiConfigured,
+        provider: activeProvider,
+        model: activeModel,
+        status: (groqConfigured || geminiConfigured) ? 'OPERATIONAL' : 'RULES_FALLBACK_ACTIVE',
+        groqConfigured,
+        geminiConfigured,
         capabilities: [
           'AI Academic Chat Assistant',
           'AI Performance Summary & Trend Analysis',
@@ -166,7 +179,49 @@ export async function performanceSummary(req: AuthRequest, res: Response, next: 
       mode: 'rules-based',
     };
 
-    // Attempt Gemini interpretation if configured
+    // Tier 1: Groq AI
+    if (isGroqAvailable()) {
+      try {
+        const prompt = `Student Academic Summary:
+- Verified CGPA: ${cgpaResult.cgpa.toFixed(2)} / 10.0
+- Semester Trend: ${semesterStats.map((s) => `Sem ${s.semesterNumber}: SGPA ${s.sgpa.toFixed(2)} (${s.credits} credits)`).join(', ')}
+- Strong Courses: ${strongSubjects.map((s) => `${s.name} (${s.grade})`).join(', ') || 'None'}
+- Weak/Failed Courses: ${weakSubjects.map((s) => `${s.name} (${s.grade}, ${s.percentage}%)`).join(', ') || 'None'}
+
+Provide:
+1. A concise 2-sentence executive performance insight.
+2. 3 prioritized, actionable academic recommendations.`;
+
+        const groqResponse = await generateGroqStructured<{
+          executiveInsight: string;
+          recommendations: string[];
+        }>(
+          prompt,
+          `{"executiveInsight": "string", "recommendations": ["string", "string", "string"]}`,
+          {
+            systemInstruction: 'You are an expert university academic dean and performance analyst. Interpret the verified student metrics constructively.',
+          }
+        );
+
+        if (groqResponse && groqResponse.recommendations?.length > 0) {
+          res.json({
+            success: true,
+            data: {
+              ...baseSummary,
+              executiveInsight: groqResponse.executiveInsight,
+              recommendations: groqResponse.recommendations,
+              mode: 'groq',
+              model: getGroqModelName(),
+            },
+          });
+          return;
+        }
+      } catch (groqErr: any) {
+        logger.warn('Groq performance-summary enrichment failed, attempting Gemini:', groqErr.message);
+      }
+    }
+
+    // Tier 2: Gemini AI (Fallback)
     if (isGeminiAvailable()) {
       try {
         const prompt = `Student Academic Summary:
@@ -611,7 +666,67 @@ export async function academicChat(req: AuthRequest, res: Response, next: NextFu
     const safeExpPoints = typeof explanation?.totalWeightedPoints === 'number' ? explanation.totalWeightedPoints.toFixed(2) : '0.00';
     const safeExpSgpa = typeof explanation?.sgpa === 'number' ? explanation.sgpa.toFixed(2) : '0.00';
 
-    // Check if Gemini is available for real response
+    // Tier 1: Groq AI (Ultra-fast LPU inference, generous free-tier limits)
+    if (isGroqAvailable()) {
+      try {
+        const systemInstruction = `You are the CEHP Academic AI Advisor at an engineering university.
+You are strictly grounded in the student's verified institutional records:
+- Registration Number: ${studentProfile?.registrationNumber || '212222040001'}
+- Current Cumulative CGPA: ${safeCgpa} / 10.0
+- Total Completed Degree Credits: ${totalCredits}
+- Total Passed Courses: ${totalPassed}
+- Active Backlogs / Arrears: ${failedResults.length} (${failedResults.map((r: any) => `${r.subjectCode || r.subjectName || 'Course'} (Attempts: ${r.totalAttempts || 1})`).join(', ') || '0 active backlogs'})
+- Semester-Wise Breakdown: ${semesterStats.map((s) => `Sem ${s.semesterNumber}: SGPA ${typeof s.sgpa === 'number' ? s.sgpa.toFixed(2) : '0.00'} (${s.credits} credits)`).join('; ')}
+
+VERIFIED COMPUTED GROUND TRUTH FOR THIS QUESTION:
+- Target CGPA Calculation (for target ${targetVal}): ${targetPlan.explanation} (Max possible CGPA with 10.0 SGPA: ${safeTargetMaxCgpa})
+- Latest Semester (${semNumber}) SGPA Calculation: Total Weighted Points = ${safeExpPoints}, Credits = ${explanation.totalCredits}, SGPA = ${safeExpSgpa}
+- Semester Comparison: ${comparisonSummary} (Differential: ${compDifferential}, Trajectory: ${compTrajectory})
+- Lowest Semester SGPA was Semester ${minSem?.semesterNumber || 1} (${safeMinSgpa}), Highest was Semester ${maxSem?.semesterNumber || 4} (${safeMaxSgpa})
+
+CRITICAL RULES:
+1. Always base your academic analysis on these verified figures. Never invent marks, grades, or fake arrear counts.
+2. The university uses a 10-point Choice-Based Credit System (CBCS): Grade O = 10 GP, A+ = 9 GP, A = 8 GP, B+ = 7 GP, B = 6 GP, C = 5 GP, F = 0 GP (Arrear). Minimum passing marks: 50% combined (internal 40% + external 60%).
+3. Format your answers cleanly with markdown headings (###), bullet points, and bold text for readability.
+4. Be professional, supportive, motivating, and mathematically accurate.`;
+
+        const groqHistory = (Array.isArray(history) ? history : [])
+          .filter((h: any) => h.content)
+          .map((h: any) => ({
+            role: (h.role === 'assistant' ? 'assistant' : 'user') as 'assistant' | 'user',
+            text: String(h.content),
+          }));
+        groqHistory.push({ role: 'user', text: message });
+
+        const groqAnswer = await chatWithGroq(groqHistory, {
+          systemInstruction,
+          temperature: 0.7,
+        });
+
+        if (groqAnswer && groqAnswer.trim()) {
+          res.json({
+            success: true,
+            answer: groqAnswer,
+            response: groqAnswer,
+            suggestions,
+            data: {
+              answer: groqAnswer,
+              response: groqAnswer,
+              mode: 'groq',
+              model: getGroqModelName(),
+              intent,
+              suggestions,
+              disclaimer: 'Generated by Groq AI grounded in verified institutional academic records.',
+            },
+          });
+          return;
+        }
+      } catch (groqErr: any) {
+        logger.warn('Groq chat request failed, attempting Gemini fallback:', groqErr.message);
+      }
+    }
+
+    // Tier 2: Gemini AI (Grounded in Verified Academic Records)
     if (isGeminiAvailable()) {
       try {
         const systemInstruction = `You are the CEHP Academic AI Advisor at an engineering university.
