@@ -275592,6 +275592,7 @@ var { combine, timestamp, printf, colorize, errors } = import_winston.default.fo
 var logFormat = printf(({ level, message, timestamp: timestamp2, stack }) => {
   return `${timestamp2} [${level}]: ${stack || message}`;
 });
+var isServerless = Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.NOW_REGION);
 var logger = import_winston.default.createLogger({
   level: config.nodeEnv === "production" ? "info" : "debug",
   format: combine(
@@ -275602,7 +275603,7 @@ var logger = import_winston.default.createLogger({
   ),
   transports: [
     new import_winston.default.transports.Console(),
-    ...config.nodeEnv === "production" ? [
+    ...config.nodeEnv === "production" && !isServerless ? [
       new import_winston.default.transports.File({ filename: "logs/error.log", level: "error" }),
       new import_winston.default.transports.File({ filename: "logs/combined.log" })
     ] : []
