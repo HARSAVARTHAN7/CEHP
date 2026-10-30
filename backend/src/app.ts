@@ -23,7 +23,9 @@ const app = express();
 
 // Security
 app.use(helmet({
-  contentSecurityPolicy: false, // Allow frontend
+  contentSecurityPolicy: false,
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+  crossOriginOpenerPolicy: { policy: 'same-origin-allow-popups' },
 }));
 
 app.use(cors({
@@ -32,6 +34,8 @@ app.use(cors({
   },
   credentials: true,
   methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin', 'x-request-id'],
+  exposedHeaders: ['Set-Cookie'],
 }));
 
 // Logging

@@ -124,30 +124,37 @@ export default function LoginPage() {
   const checkHealth = useCallback(async () => {
     setIsCheckingHealth(true);
     try {
-      const res = await axios.get('http://localhost:5000/health', { timeout: 3500 });
+      let res: any;
+      try {
+        res = await axios.get('/api/health', { timeout: 3500 });
+      } catch {
+        res = await axios.get('http://localhost:5000/health', { timeout: 3500 });
+      }
       setSystemHealth({
         checked: true,
         backendOnline: true,
         dbStatus: res.data?.database || 'connected',
       });
+      // Clear stale connection or server unreachable errors when confirmed healthy
+      if (res.data?.database === 'connected' || res.data?.status === 'ok') {
+        setError((prev) => (
+          prev.includes('verify backend service') ||
+          prev.includes('Authentication server error') ||
+          prev.includes('Cannot connect') ||
+          prev.includes('Backend server is not running') ||
+          prev.includes('Database service is currently unreachable')
+            ? ''
+            : prev
+        ));
+      }
       return true;
     } catch {
-      try {
-        const res = await axios.get('/api/health', { timeout: 3500 });
-        setSystemHealth({
-          checked: true,
-          backendOnline: true,
-          dbStatus: res.data?.database || 'connected',
-        });
-        return true;
-      } catch {
-        setSystemHealth({
-          checked: true,
-          backendOnline: false,
-          dbStatus: 'disconnected',
-        });
-        return false;
-      }
+      setSystemHealth({
+        checked: true,
+        backendOnline: false,
+        dbStatus: 'disconnected',
+      });
+      return false;
     } finally {
       setIsCheckingHealth(false);
     }
@@ -279,7 +286,10 @@ export default function LoginPage() {
               {/* Live Backend & DB Status Pill */}
               <button
                 type="button"
-                onClick={checkHealth}
+                onClick={() => {
+                  setError('');
+                  checkHealth();
+                }}
                 title="Click to re-check backend & database health"
                 className={cn(
                   'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-semibold transition-all cursor-pointer',
@@ -412,12 +422,6 @@ export default function LoginPage() {
             <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">
               Or Sign In with Email & Password
             </h3>
-
-            {error && (
-              <div className="mb-4 p-3.5 bg-rose-500/15 border border-rose-500/30 rounded-xl text-rose-300 text-xs font-medium">
-                {error}
-              </div>
-            )}
 
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
