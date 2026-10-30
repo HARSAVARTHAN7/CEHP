@@ -95,6 +95,7 @@ export default function AIAssistantPage() {
 
       setSuggestedQuestions(newSuggestions);
     } catch (err: any) {
+      console.error('Academic chat inquiry error:', err.response?.status, err.response?.data || err.message, err);
       let errorMsg = "The AI assistant encountered an unexpected processing issue. Please click below to retry.";
       if (err.response) {
         if (err.response.status === 401) {
@@ -103,7 +104,7 @@ export default function AIAssistantPage() {
           errorMsg = err.response.data?.message || "AI inquiry rate limit reached. Please wait a moment before trying again.";
         } else if (err.response.status === 503) {
           errorMsg = "The academic records or AI service is temporarily unavailable. Please click below to retry.";
-        } else if (err.response.data?.message && typeof err.response.data.message === 'string' && !err.response.data.message.includes('Internal server error')) {
+        } else if (err.response.data?.message && typeof err.response.data.message === 'string') {
           errorMsg = err.response.data.message;
         } else {
           errorMsg = "Unable to process inquiry at this moment. Please click below to retry.";
@@ -119,6 +120,7 @@ export default function AIAssistantPage() {
           content: errorMsg,
           mode: 'error',
           isError: true,
+          failedText: queryText,
         },
       ]);
     } finally {
