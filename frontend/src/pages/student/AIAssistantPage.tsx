@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Send, Bot, User, Loader2, BrainCircuit, Sparkles, Trash2, Copy, Check } from 'lucide-react';
+import { Send, Bot, User, Loader2, BrainCircuit, Sparkles, Trash2, Copy, Check, RotateCcw, AlertCircle } from 'lucide-react';
 import { aiApi, studentApi } from '../../services/api';
 import { cn } from '../../lib/utils';
 import { ConfirmModal } from '../../components/ConfirmModal';
@@ -9,14 +9,22 @@ interface Message {
   role: 'user' | 'assistant';
   content: string;
   mode?: string;
+  suggestions?: string[];
+  isError?: boolean;
 }
 
 const INITIAL_MESSAGE: Message = {
   role: 'assistant',
   content: "Hello! I am your AI Academic Assistant. Grounded directly in your university records, I can evaluate your CGPA progression, identify backlogs, explain CBCS grading criteria, and build a tailored study timetable. How can I help you today?",
+  suggestions: [
+    "How much SGPA do I need next semester to reach target CGPA 9.0?",
+    "Explain how my SGPA was calculated",
+    "Compare my last two semesters",
+    "What is my current CGPA?",
+  ],
 };
 
-const SUGGESTED_QUESTIONS = [
+const DEFAULT_SUGGESTED_QUESTIONS = [
   "How much SGPA do I need next semester to reach target CGPA 9.0?",
   "Explain how my SGPA was calculated",
   "Compare my last two semesters",
@@ -32,6 +40,7 @@ export default function AIAssistantPage() {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
+  const [suggestedQuestions, setSuggestedQuestions] = useState<string[]>(DEFAULT_SUGGESTED_QUESTIONS);
 
   const { data: summaryRes } = useQuery({
     queryKey: ['performance-summary'],
@@ -48,62 +57,66 @@ export default function AIAssistantPage() {
   });
 
   const arrearsData = arrearsRes?.data?.data || arrearsRes?.data;
-  const activeArrearsCount = arrearsData?.activeArrearsCount ?? (summary?.arrearsCount || 0);
-  const activeArrearsList = arrearsData?.activeArrears || [];
 
   const sendMessage = async (text: string) => {
     if (!text.trim() || isLoading) return;
 
-    const userMsg: Message = { role: 'user', content: text };
+    const queryText = text.trim();
+    const userMsg: Message = { role: 'user', content: queryText };
     setMessages((prev) => [...prev, userMsg]);
     setInput('');
     setIsLoading(true);
 
     try {
-      const historyPayload = messages.map((m) => ({ role: m.role, content: m.content }));
-      const res = await aiApi.chat(text, historyPayload);
+      const historyPayload = messages
+        .filter((m) => !m.isError)
+        .map((m) => ({ role: m.role, content: m.content }));
+
+      const res = await aiApi.chat(queryText, historyPayload);
       const aiData = res.data?.data || res.data;
+      const answer = aiData?.answer || aiData?.response || "Academic inquiry completed successfully.";
+      const newSuggestions: string[] = Array.isArray(aiData?.suggestions) && aiData.suggestions.length > 0
+        ? aiData.suggestions
+        : suggestedQuestions;
+
       setMessages((prev) => [
         ...prev,
         {
           role: 'assistant',
-          content: aiData.answer || aiData.response || (activeArrearsCount > 0
-            ? `I have analyzed your examination history. You currently have ${activeArrearsCount} active backlog(s) pending clearance.`
-            : "I have analyzed your examination history. Your current standing is strong with 0 backlogs."),
-          mode: aiData.mode || 'rules-based',
+          content: answer,
+          mode: aiData?.mode || 'gemini',
+          suggestions: newSuggestions,
         },
       ]);
-    } catch {
-      // Graceful fallback response
-      let fallbackText = "I have analyzed your academic records.";
-      const q = text.toLowerCase();
-      if (q.includes('cgpa') || q.includes('gpa')) {
-        fallbackText = `Your current Cumulative Grade Point Average (CGPA) is **${summary?.overallCGPA ? summary.overallCGPA.toFixed(2) : '8.45'} / 10.0**.`;
-      } else if (q.includes('arrear') || q.includes('fail') || q.includes('backlog')) {
-        if (activeArrearsCount > 0) {
-          fallbackText = `You currently have **${activeArrearsCount} active backlog(s)**:\n` +
-            activeArrearsList.map((a: any) => `- **${a.subjectCode}**: ${a.subjectName} (Sem ${a.semesterNumber}, Last Score: ${a.latestTotalMarks}/${a.latestMaximumMarks || 100})`).join('\n') +
-            `\n\nYou can register for supplementary examination cycles in the **Arrear Tracker**.`;
-        } else {
-          fallbackText = "You currently have **0 active arrears**. Your academic record is completely cleared.";
-        }
-      } else if (q.includes('study plan') || q.includes('plan')) {
-        fallbackText = "Recommended study timetable: Allocate dedicated revision hours across your core engineering subjects using the **Study Planner** tab.";
-      } else {
-        fallbackText = `Based on your official transcript, your CGPA is **${summary?.overallCGPA ? summary.overallCGPA.toFixed(2) : '8.45'} / 10.0** with **${activeArrearsCount} active arrears**.`;
-      }
 
+      setSuggestedQuestions(newSuggestions);
+    } catch (err: any) {
       setMessages((prev) => [
         ...prev,
-        { role: 'assistant', content: fallbackText, mode: 'rules-based' },
+        {
+          role: 'assistant',
+          content: "Unable to complete AI inquiry due to a temporary service error. Please click below to retry.",
+          mode: 'error',
+          isError: true,
+        },
       ]);
     } finally {
       setIsLoading(false);
     }
   };
 
+  const handleRetryLastMessage = () => {
+    const lastUserMsg = [...messages].reverse().find((m) => m.role === 'user');
+    if (lastUserMsg) {
+      // Remove trailing error message if present
+      setMessages((prev) => prev.filter((m) => !m.isError));
+      sendMessage(lastUserMsg.content);
+    }
+  };
+
   const handleConfirmClearChat = () => {
     setMessages([INITIAL_MESSAGE]);
+    setSuggestedQuestions(DEFAULT_SUGGESTED_QUESTIONS);
     setShowClearConfirm(false);
   };
 
@@ -184,16 +197,26 @@ export default function AIAssistantPage() {
             </div>
           </div>
 
+          {/* Dynamic Suggested Inquiries Panel */}
           <div className="bg-[#0a0f1d] rounded-2xl border border-slate-800 p-5 shadow-xl">
-            <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-3">Suggested Inquiries</h3>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+                Suggested Inquiries
+              </h3>
+            </div>
             <div className="space-y-1.5">
-              {SUGGESTED_QUESTIONS.map((q) => (
+              {suggestedQuestions.map((q, idx) => (
                 <button
-                  key={q}
+                  key={idx}
                   onClick={() => sendMessage(q)}
-                  className="w-full text-left text-xs px-3 py-2.5 bg-white dark:bg-[#030712] hover:bg-indigo-50 dark:hover:bg-indigo-950/70 rounded-xl transition-all text-slate-700 dark:text-slate-300 hover:text-indigo-700 dark:hover:text-indigo-300 border border-slate-300 dark:border-slate-800 hover:border-indigo-300 dark:hover:border-indigo-700/50"
+                  disabled={isLoading}
+                  className="w-full text-left text-xs px-3 py-2.5 bg-white dark:bg-[#030712] hover:bg-indigo-50 dark:hover:bg-indigo-950/70 rounded-xl transition-all text-slate-700 dark:text-slate-300 hover:text-indigo-700 dark:hover:text-indigo-300 border border-slate-300 dark:border-slate-800 hover:border-indigo-300 dark:hover:border-indigo-700/50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-between group"
                 >
-                  {q}
+                  <span className="line-clamp-2">{q}</span>
+                  <span className="text-[10px] text-indigo-400 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 ml-1">
+                    Ask →
+                  </span>
                 </button>
               ))}
             </div>
@@ -213,13 +236,15 @@ export default function AIAssistantPage() {
                 )}
                 <div
                   className={cn(
-                    'max-w-[82%] rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-md group relative',
+                    'max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-md group relative',
                     msg.role === 'user'
                       ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white rounded-tr-sm font-medium'
+                      : msg.isError
+                      ? 'bg-rose-950/40 text-rose-200 border border-rose-800/60 rounded-tl-sm'
                       : 'bg-slate-100 dark:bg-[#121a2d] text-slate-800 dark:text-slate-100 border border-slate-200 dark:border-slate-700/60 rounded-tl-sm'
                   )}
                 >
-                  {msg.role === 'assistant' && (
+                  {msg.role === 'assistant' && !msg.isError && (
                     <button
                       onClick={() => {
                         navigator.clipboard.writeText(msg.content);
@@ -232,10 +257,29 @@ export default function AIAssistantPage() {
                       {copiedIdx === idx ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
                     </button>
                   )}
+
+                  {msg.isError && (
+                    <div className="flex items-center gap-2 text-rose-300 font-semibold mb-1">
+                      <AlertCircle className="w-4 h-4" />
+                      Inquiry Processing Error
+                    </div>
+                  )}
+
                   {msg.content.split('\n').map((line, i) => (
                     <p key={i} className={i > 0 ? 'mt-1' : ''}>{line}</p>
                   ))}
-                  {msg.mode && (
+
+                  {msg.isError && (
+                    <button
+                      onClick={handleRetryLastMessage}
+                      className="mt-2.5 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-900/60 hover:bg-rose-800 text-white text-xs font-semibold border border-rose-700 transition-all"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      Retry Question
+                    </button>
+                  )}
+
+                  {msg.mode && !msg.isError && (
                     <p className="text-[10px] mt-1.5 text-indigo-400 font-mono flex items-center gap-1">
                       {msg.mode === 'gemini' ? (
                         <span className="inline-flex items-center gap-1 text-emerald-400 font-semibold">
@@ -248,6 +292,28 @@ export default function AIAssistantPage() {
                         </span>
                       )}
                     </p>
+                  )}
+
+                  {/* Contextual Suggested Quick-Followups right below the message */}
+                  {msg.suggestions && msg.suggestions.length > 0 && idx === messages.length - 1 && !isLoading && (
+                    <div className="mt-3 pt-2.5 border-t border-slate-700/50 space-y-1.5">
+                      <span className="text-[10px] uppercase font-bold text-slate-400 flex items-center gap-1">
+                        <Sparkles className="w-3 h-3 text-indigo-400" />
+                        Relevant Follow-up Inquiries:
+                      </span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {msg.suggestions.map((s, sIdx) => (
+                          <button
+                            key={sIdx}
+                            onClick={() => sendMessage(s)}
+                            disabled={isLoading}
+                            className="text-xs px-2.5 py-1.5 rounded-lg bg-indigo-950/70 hover:bg-indigo-900 border border-indigo-700/60 text-indigo-200 hover:text-white transition-all text-left shadow-sm disabled:opacity-50"
+                          >
+                            {s}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                   )}
                 </div>
                 {msg.role === 'user' && (
@@ -262,8 +328,9 @@ export default function AIAssistantPage() {
                 <div className="flex-shrink-0 w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-950 border border-indigo-200 dark:border-indigo-700/60 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
                   <Bot className="w-4 h-4" />
                 </div>
-                <div className="bg-slate-100 dark:bg-[#121a2d] border border-slate-200 dark:border-slate-700/60 rounded-2xl rounded-tl-sm px-4 py-3">
-                  <Loader2 className="w-4 h-4 text-indigo-600 dark:text-indigo-400 animate-spin" />
+                <div className="bg-slate-100 dark:bg-[#121a2d] border border-slate-200 dark:border-slate-700/60 rounded-2xl rounded-tl-sm px-4 py-3 flex items-center gap-2 text-xs text-indigo-300">
+                  <Loader2 className="w-4 h-4 text-indigo-400 animate-spin" />
+                  Analyzing institutional records & formulating response...
                 </div>
               </div>
             )}

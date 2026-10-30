@@ -407,6 +407,181 @@ export async function academicChat(req: AuthRequest, res: Response, next: NextFu
       }
     }
 
+    // Detect Question Intent Category
+    const q = message.toLowerCase().trim();
+    let intent = 'GENERAL_ACADEMIC_QUERY';
+    if (
+      q.includes('target') ||
+      q.includes('need next semester') ||
+      q.includes('aim') ||
+      q.match(/(?:reach|achieve)\s+(?:cgpa\s+)?([0-9]+(?:\.[0-9]+)?)/) ||
+      q.match(/([0-9]+\.[0-9]+)\s+cgpa/)
+    ) {
+      intent = 'TARGET_CGPA_CALCULATION';
+    } else if (
+      q.includes('how') &&
+      (q.includes('sgpa') || q.includes('calculate') || q.includes('formula') || q.includes('breakdown'))
+    ) {
+      intent = 'SGPA_CALCULATION_EXPLANATION';
+    } else if (
+      q.includes('compare') &&
+      (q.includes('semester') || q.includes('last two') || q.includes('progression') || q.includes('trend'))
+    ) {
+      intent = 'SEMESTER_COMPARISON';
+    } else if (
+      q.includes('arrear') ||
+      q.includes('fail') ||
+      q.includes('backlog') ||
+      q.includes('uncleared')
+    ) {
+      intent = 'ARREAR_AUDIT';
+    } else if (
+      q.includes('why') &&
+      (q.includes('decrease') || q.includes('drop') || q.includes('lower') || q.includes('change') || q.includes('fall'))
+    ) {
+      intent = 'CGPA_DROP_ANALYSIS';
+    } else if (
+      q.includes('study plan') ||
+      q.includes('timetable') ||
+      q.includes('schedule') ||
+      q.includes('revision plan')
+    ) {
+      intent = 'STUDY_PLAN_REQUEST';
+    } else if (
+      q.includes('history') ||
+      q.includes('all semester') ||
+      q.includes('every semester') ||
+      q.includes('complete semester')
+    ) {
+      intent = 'SEMESTER_HISTORY';
+    } else if (
+      q.includes('cgpa') ||
+      q.includes('cumulative')
+    ) {
+      intent = 'CGPA_STATUS';
+    } else if (
+      q.includes('sgpa') ||
+      q.includes('semester gpa')
+    ) {
+      intent = 'SGPA_STATUS';
+    }
+
+    // Dynamic Context-Aware Suggestions Generator
+    let suggestions: string[] = [];
+    switch (intent) {
+      case 'TARGET_CGPA_CALCULATION':
+        suggestions = [
+          'Which high-credit core subjects have the highest pull on my CGPA?',
+          'Compare my performance between Semester 3 and Semester 4',
+          'Create a study plan to achieve my target SGPA',
+          'Explain how my latest semester SGPA was calculated',
+        ];
+        break;
+      case 'SGPA_CALCULATION_EXPLANATION':
+        suggestions = [
+          'How much SGPA do I need next semester to reach target CGPA 9.5?',
+          'Compare my last two semesters',
+          'What is my current CGPA and academic standing?',
+          'Show my complete semester-wise examination history',
+        ];
+        break;
+      case 'SEMESTER_COMPARISON':
+        suggestions = [
+          'Which courses had the highest score differential between semesters?',
+          'Explain why my CGPA decreased or changed',
+          'How much SGPA do I need next semester to reach target CGPA 9.5?',
+          'Create a study plan based on this comparison',
+        ];
+        break;
+      case 'ARREAR_AUDIT':
+        suggestions = failedResults.length > 0
+          ? [
+              'Create an intensive study plan for my uncleared arrear subjects',
+              'How does clearing these backlogs impact my overall CGPA?',
+              'What are the passing mark criteria for university supplementary exams?',
+              'How much SGPA do I need next semester to recover?',
+            ]
+          : [
+              'What is my current CGPA and academic standing?',
+              'How much SGPA do I need next semester to reach target CGPA 9.5?',
+              'Compare my last two semesters',
+              'Create a study plan for my upcoming semester electives',
+            ];
+        break;
+      case 'CGPA_DROP_ANALYSIS':
+        suggestions = [
+          'How much SGPA do I need next semester to recover my CGPA?',
+          'Which core subjects should I prioritize next semester?',
+          'Compare my last two semesters',
+          'Create a study plan to boost my theoretical course scores',
+        ];
+        break;
+      case 'CGPA_STATUS':
+        suggestions = [
+          'How much SGPA do I need next semester to reach target CGPA 9.5?',
+          'Explain how my latest semester SGPA was calculated',
+          'Compare my last two semesters',
+          'Which subjects have I failed or have arrears in?',
+        ];
+        break;
+      case 'STUDY_PLAN_REQUEST':
+        suggestions = [
+          'Adjust this plan for 3 hours of daily evening study',
+          'Which specific units or topics have the highest weightage in upcoming exams?',
+          'How many previous question papers should I solve per subject?',
+          'How much SGPA will this study schedule help me achieve?',
+        ];
+        break;
+      case 'SEMESTER_HISTORY':
+        suggestions = [
+          'Compare my last two semesters',
+          'Explain why my CGPA decreased or changed',
+          'How much SGPA do I need next semester to reach target CGPA 9.5?',
+          'What is my current CGPA?',
+        ];
+        break;
+      default:
+        suggestions = [
+          'How much SGPA do I need next semester to reach target CGPA 9.0?',
+          'Explain how my SGPA was calculated',
+          'Compare my last two semesters',
+          'Which subjects have I failed or have arrears in?',
+        ];
+        break;
+    }
+
+    // Compute Authoritative Ground Truth Facts for this Intent
+    const targetMatch = q.match(/(?:target|reach|aim(?:ing)? for|achieve)\s+(?:cgpa\s+)?([0-9]+(?:\.[0-9]+)?)/i) ||
+                        q.match(/([0-9]+\.[0-9]+)\s+cgpa/i) ||
+                        (q.includes('target') && q.match(/([0-9]+(?:\.[0-9]+)?)/));
+    const targetVal = targetMatch ? parseFloat(targetMatch[1]) : 9.0;
+    const targetPlan = calculateTargetSGPA(cgpaResult.cgpa, totalCredits, targetVal, 24);
+
+    const latestSem = semesterStats[semesterStats.length - 1];
+    const semNumber = latestSem ? latestSem.semesterNumber : 4;
+    const explanation = explainSGPACalculation(results.length > 0 ? results : [
+      { credits: 4, grade: 'O', gradePoint: 10, subjectCode: 'CS401', subjectName: 'Database Systems' },
+      { credits: 4, grade: 'O', gradePoint: 10, subjectCode: 'CS402', subjectName: 'Operating Systems' },
+      { credits: 4, grade: 'A', gradePoint: 8, subjectCode: 'CS403', subjectName: 'Computer Networks' },
+      { credits: 4, grade: 'A+', gradePoint: 9, subjectCode: 'CS404', subjectName: 'Algorithms' },
+      { credits: 2, grade: 'O', gradePoint: 10, subjectCode: 'CS405', subjectName: 'DBMS Lab' },
+    ] as any);
+
+    let comparisonSummary = 'Requires at least 2 completed semester records.';
+    let compDifferential = '+0.00';
+    let compTrajectory = 'STABLE';
+    if (semesterStats.length >= 2) {
+      const semA = semesterStats[semesterStats.length - 2];
+      const semB = semesterStats[semesterStats.length - 1];
+      const comp = compareSemesters(semA, semB);
+      comparisonSummary = comp.summary;
+      compDifferential = `${comp.sgpaDifference >= 0 ? '+' : ''}${comp.sgpaDifference.toFixed(2)}`;
+      compTrajectory = comp.trajectory;
+    }
+
+    const minSem = [...semesterStats].sort((a, b) => a.sgpa - b.sgpa)[0];
+    const maxSem = [...semesterStats].sort((a, b) => b.sgpa - a.sgpa)[0];
+
     // Check if Gemini is available for real response
     if (isGeminiAvailable()) {
       try {
@@ -417,7 +592,13 @@ You are strictly grounded in the student's verified institutional records:
 - Total Completed Degree Credits: ${totalCredits}
 - Total Passed Courses: ${totalPassed}
 - Active Backlogs / Arrears: ${failedResults.length} (${failedResults.map((r: any) => `${r.subjectCode || r.subjectName || 'Course'} (Attempts: ${r.totalAttempts || 1})`).join(', ') || '0 active backlogs'})
-- Semester-Wise Record: ${semesterStats.map((s) => `Sem ${s.semesterNumber}: SGPA ${s.sgpa.toFixed(2)} (${s.credits} credits)`).join('; ')}
+- Semester-Wise Breakdown: ${semesterStats.map((s) => `Sem ${s.semesterNumber}: SGPA ${s.sgpa.toFixed(2)} (${s.credits} credits)`).join('; ')}
+
+VERIFIED COMPUTED GROUND TRUTH FOR THIS QUESTION:
+- Target CGPA Calculation (for target ${targetVal}): ${targetPlan.explanation} (Max possible CGPA with 10.0 SGPA: ${targetPlan.maxPossibleCGPA.toFixed(2)})
+- Latest Semester (${semNumber}) SGPA Calculation: Total Weighted Points = ${explanation.totalWeightedPoints.toFixed(2)}, Credits = ${explanation.totalCredits}, SGPA = ${explanation.sgpa.toFixed(2)}
+- Semester Comparison: ${comparisonSummary} (Differential: ${compDifferential}, Trajectory: ${compTrajectory})
+- Lowest Semester SGPA was Semester ${minSem?.semesterNumber || 1} (${minSem?.sgpa.toFixed(2) || '8.10'}), Highest was Semester ${maxSem?.semesterNumber || 4} (${maxSem?.sgpa.toFixed(2) || '8.60'})
 
 CRITICAL RULES:
 1. Always base your academic analysis on these verified figures. Never invent marks, grades, or fake arrear counts.
@@ -427,7 +608,6 @@ CRITICAL RULES:
 
         let answer = '';
 
-        // Handle conversation history if provided
         if (Array.isArray(history) && history.length > 0) {
           const formattedHistory = history
             .filter((h: any) => h.content && (h.role === 'user' || h.role === 'assistant'))
@@ -456,6 +636,8 @@ CRITICAL RULES:
               answer,
               mode: 'gemini',
               model: getGeminiModelName(),
+              intent,
+              suggestions,
               disclaimer: 'Generated by Google Gemini grounded in verified institutional academic records.',
             },
           });
@@ -466,79 +648,110 @@ CRITICAL RULES:
       }
     }
 
-    // Rules-Based Deterministic Fallback Engine
-    const q = message.toLowerCase().trim();
-    let response = '';
-
-    const targetMatch = q.match(/(?:target|reach|aim(?:ing)? for|achieve)\s+(?:cgpa\s+)?([0-9]+(?:\.[0-9]+)?)/i) ||
-                        q.match(/([0-9]+\.[0-9]+)\s+cgpa/i) ||
-                        (q.includes('target') && q.match(/([0-9]+(?:\.[0-9]+)?)/));
-
-    if (q.includes('target') || q.includes('need next semester') || (targetMatch && (q.includes('cgpa') || q.includes('sgpa')))) {
-      const targetVal = targetMatch ? parseFloat(targetMatch[1]) : 9.0;
-      const targetPlan = calculateTargetSGPA(cgpaResult.cgpa, totalCredits, targetVal, 24);
-
-      response = `### Target CGPA Planning (${targetVal.toFixed(2)})\n\n` +
-                 `**Direct Answer:**\n${targetPlan.explanation}\n\n` +
-                 `**Verified Baseline Telemetry:**\n` +
-                 `- Current CGPA: **${cgpaResult.cgpa.toFixed(2)}**\n` +
-                 `- Completed Degree Credits: **${totalCredits}**\n` +
-                 `- Upcoming Semester Expected Credits: **24**\n` +
-                 `- Next Semester Max Achievable CGPA (with 10.0 SGPA): **${targetPlan.maxPossibleCGPA.toFixed(2)}**\n\n` +
-                 `**Recommended Strategy:**\n` +
-                 `Focus on scoring 'O' (10 GP) or 'A+' (9 GP) in 4-credit core subjects. Higher-credit courses have the largest upward pull on cumulative CGPA.`;
-    } else if (q.includes('how') && (q.includes('sgpa') || q.includes('calculated') || q.includes('formula'))) {
-      const latestSem = semesterStats[semesterStats.length - 1];
-      const semNumber = latestSem ? latestSem.semesterNumber : 4;
-      const explanation = explainSGPACalculation(results.length > 0 ? results : [
-        { credits: 4, grade: 'O', gradePoint: 10, subjectCode: 'CS401', subjectName: 'Database Systems' },
-        { credits: 4, grade: 'O', gradePoint: 10, subjectCode: 'CS402', subjectName: 'Operating Systems' },
-        { credits: 4, grade: 'A', gradePoint: 8, subjectCode: 'CS403', subjectName: 'Computer Networks' },
-        { credits: 4, grade: 'A+', gradePoint: 9, subjectCode: 'CS404', subjectName: 'Algorithms' },
-        { credits: 2, grade: 'O', gradePoint: 10, subjectCode: 'CS405', subjectName: 'DBMS Lab' },
-      ] as any);
-
-      response = `### Step-by-Step SGPA Calculation (Semester ${semNumber})\n\n` +
-                 `**Calculation Formula:**\n` +
-                 `\`SGPA = Σ(Subject Credits × Grade Points) / Σ(Total Semester Credits)\`\n\n` +
-                 `**Course-Wise Breakdown:**\n` +
-                 explanation.breakdown.map((b) => `- **${b.subjectCode}** (${b.subjectName}): ${b.credits} credits × ${b.gradePoint} GP (${b.grade}) = **${b.weightedPoints.toFixed(1)} points**`).join('\n') +
-                 `\n\n**Numerical Result:**\n` +
-                 `- Total Weighted Grade Points: **${explanation.totalWeightedPoints.toFixed(2)}**\n` +
-                 `- Total Applicable Credits: **${explanation.totalCredits}**\n` +
-                 `- **Calculated SGPA: ${explanation.sgpa.toFixed(2)}**`;
-    } else if (q.includes('arrear') || q.includes('fail') || q.includes('backlog')) {
-      if (failedResults.length > 0) {
-        response = `### Active Arrear Audit\n\n` +
-                   `You currently have **${failedResults.length} active backlog(s)**:\n` +
-                   failedResults.map((r: any) => `- **${r.subjectCode || (r.subjectId as any)?.code || 'SUB'}**: ${r.subjectName || (r.subjectId as any)?.name || 'Course'} (Attempts: ${r.totalAttempts || 1}, Last Score: ${r.latestTotalMarks ?? r.totalMarks}/${r.latestMaximumMarks || r.maximumMarks || 100})`).join('\n') +
-                   `\n\n**Next Steps:** Register for the upcoming supplementary cycle and utilize the **Study Planner** for systematic revision.`;
+    // Rules-Based Deterministic Fallback Engine (Covers every single category)
+    let fallbackResponse = '';
+    if (intent === 'TARGET_CGPA_CALCULATION') {
+      fallbackResponse = `### Target CGPA Planning (${targetVal.toFixed(2)})\n\n` +
+        `**Direct Answer:**\n${targetPlan.explanation}\n\n` +
+        `**Verified Baseline Telemetry:**\n` +
+        `- Current CGPA: **${cgpaResult.cgpa.toFixed(2)} / 10.0**\n` +
+        `- Completed Degree Credits: **${totalCredits}**\n` +
+        `- Upcoming Semester Expected Credits: **24**\n` +
+        `- Next Semester Max Achievable CGPA (with 10.0 SGPA): **${targetPlan.maxPossibleCGPA.toFixed(2)}**\n\n` +
+        `**Recommended Strategy:**\n` +
+        `Focus on scoring 'O' (10 GP) or 'A+' (9 GP) in 4-credit core subjects. Higher-credit courses have the largest upward pull on cumulative CGPA.`;
+    } else if (intent === 'SGPA_CALCULATION_EXPLANATION') {
+      fallbackResponse = `### Step-by-Step SGPA Calculation (Semester ${semNumber})\n\n` +
+        `**Calculation Formula:**\n` +
+        `\`SGPA = Σ(Subject Credits × Grade Points) / Σ(Total Semester Credits)\`\n\n` +
+        `**Course-Wise Breakdown:**\n` +
+        explanation.breakdown.map((b) => `- **${b.subjectCode}** (${b.subjectName}): ${b.credits} credits × ${b.gradePoint} GP (${b.grade}) = **${b.weightedPoints.toFixed(1)} points**`).join('\n') +
+        `\n\n**Numerical Result:**\n` +
+        `- Total Weighted Grade Points: **${explanation.totalWeightedPoints.toFixed(2)}**\n` +
+        `- Total Applicable Credits: **${explanation.totalCredits}**\n` +
+        `- **Calculated SGPA: ${explanation.sgpa.toFixed(2)}**`;
+    } else if (intent === 'SEMESTER_COMPARISON') {
+      if (semesterStats.length >= 2) {
+        const semA = semesterStats[semesterStats.length - 2];
+        const semB = semesterStats[semesterStats.length - 1];
+        fallbackResponse = `### Semester Comparison (Sem ${semA.semesterNumber} vs Sem ${semB.semesterNumber})\n\n` +
+          `**Direct Answer:**\n${comparisonSummary}\n\n` +
+          `**Performance Metrics:**\n` +
+          `- Semester ${semA.semesterNumber}: SGPA **${semA.sgpa.toFixed(2)}** (${semA.credits} credits)\n` +
+          `- Semester ${semB.semesterNumber}: SGPA **${semB.sgpa.toFixed(2)}** (${semB.credits} credits)\n` +
+          `- Net Differential: **${compDifferential} SGPA**\n` +
+          `- Trajectory Classification: **${compTrajectory}**\n\n` +
+          `**Academic Insight:**\n` +
+          (compTrajectory === 'IMPROVED'
+            ? 'You demonstrated positive progression in your advanced department coursework.'
+            : 'Consider increasing revision hours for 4-credit core theoretical subjects in upcoming cycles.');
       } else {
-        response = `### Arrear Audit: Clear\n\n` +
-                   `You have **0 active arrears or backlogs**. All enrolled examination credits have been successfully completed with passing grades!`;
+        fallbackResponse = `Comparing semesters requires at least 2 completed cycles. You currently have ${semesterStats.length} semester recorded.`;
       }
-    } else if (q.includes('cgpa') || q.includes('cumulative')) {
-      response = `### Cumulative Grade Point Average (CGPA)\n\n` +
-                 `Your official current CGPA is **${cgpaResult.cgpa.toFixed(2)} / 10.0** based on **${semesterStats.length} published semesters** (${totalCredits} degree credits).\n\n` +
-                 `- Academic Standing: **First Class with Distinction (Exemplary)**\n` +
-                 `- Latest Semester SGPA: **${semesterStats[semesterStats.length - 1]?.sgpa.toFixed(2) || '8.60'}**\n` +
-                 `- Active Backlogs: **${failedResults.length}**`;
+    } else if (intent === 'ARREAR_AUDIT') {
+      if (failedResults.length > 0) {
+        fallbackResponse = `### Active Arrear Audit\n\n` +
+          `You currently have **${failedResults.length} active backlog(s)**:\n` +
+          failedResults.map((r: any) => `- **${r.subjectCode || (r.subjectId as any)?.code || 'SUB'}**: ${r.subjectName || (r.subjectId as any)?.name || 'Course'} (Attempts: ${r.totalAttempts || 1}, Last Score: ${r.latestTotalMarks ?? r.totalMarks}/${r.latestMaximumMarks || r.maximumMarks || 100})`).join('\n') +
+          `\n\n**Next Steps:** Register for the upcoming supplementary cycle and utilize the **Study Planner** for systematic revision.`;
+      } else {
+        fallbackResponse = `### Arrear Audit: Clear\n\n` +
+          `You have **0 active arrears or backlogs**. All enrolled examination credits have been successfully completed with passing grades!`;
+      }
+    } else if (intent === 'CGPA_DROP_ANALYSIS') {
+      fallbackResponse = `### Root Cause Analysis for CGPA Trend\n\n` +
+        `**Findings from Historical Audit:**\n` +
+        `- Lowest Semester SGPA was recorded in **Semester ${minSem?.semesterNumber || 1}** with **${minSem?.sgpa.toFixed(2) || '8.10'}**.\n` +
+        `- Peak Semester SGPA was recorded in **Semester ${maxSem?.semesterNumber || 4}** with **${maxSem?.sgpa.toFixed(2) || '8.60'}**.\n` +
+        `- Since CGPA is cumulative and credit-weighted across all ${totalCredits} credits, lower SGPAs pull the cumulative average downward.\n\n` +
+        `**Remediation Steps:**\n` +
+        `1. Secure at least Grade 'A+' (9.0) in high-credit (4-credit) upcoming subjects.\n` +
+        `2. Clear any active arrears in the earliest supplementary cycle.\n` +
+        `3. Submit all internal assessments on time to maximize the 40% internal mark component.`;
+    } else if (intent === 'STUDY_PLAN_REQUEST') {
+      fallbackResponse = `### Tailored Study Timetable Recommendation\n\n` +
+        `Based on your academic standing (CGPA ${cgpaResult.cgpa.toFixed(2)}), we recommend a **16-hour weekly study model**:\n\n` +
+        `- **Monday & Wednesday (06:30 PM - 08:30 PM)**: Core Theoretical Concepts (Database Systems, Operating Systems)\n` +
+        `- **Tuesday & Thursday (06:30 PM - 08:30 PM)**: Numerical & Algorithmic Problem Solving (Algorithms, Discrete Math)\n` +
+        `- **Saturday (09:00 AM - 01:00 PM)**: Past 3-Year University Exam Question Paper Synthesis\n` +
+        `- **Sunday (10:00 AM - 12:00 PM)**: Mock self-assessment and formula retention checks.\n\n` +
+        `You can customize this schedule in detail on the **Study Planner** page.`;
+    } else if (intent === 'SEMESTER_HISTORY') {
+      fallbackResponse = `### Complete Semester-Wise Examination Summary\n\n` +
+        semesterStats.map((s) => `- **Semester ${s.semesterNumber}**: SGPA **${s.sgpa.toFixed(2)}** | Credits: ${s.credits} | Status: Cleared`).join('\n') +
+        `\n\n- **Cumulative CGPA: ${cgpaResult.cgpa.toFixed(2)} / 10.0**\n` +
+        `- **Total Passed Courses: ${totalPassed}**\n` +
+        `- **Active Arrears: ${failedResults.length}**\n` +
+        `\nYou can view and download the official PDF transcript in the **My Results** tab.`;
+    } else if (intent === 'CGPA_STATUS') {
+      fallbackResponse = `### Cumulative Grade Point Average (CGPA)\n\n` +
+        `Your official current CGPA is **${cgpaResult.cgpa.toFixed(2)} / 10.0** based on **${semesterStats.length} published semesters** (${totalCredits} degree credits).\n\n` +
+        `- Academic Standing: **First Class with Distinction (Exemplary)**\n` +
+        `- Latest Semester SGPA: **${latestSem?.sgpa.toFixed(2) || '8.60'}**\n` +
+        `- Active Backlogs: **${failedResults.length}**`;
+    } else if (intent === 'SGPA_STATUS') {
+      fallbackResponse = latestSem
+        ? `Your latest recorded SGPA is **${latestSem.sgpa.toFixed(2)}** in **Semester ${latestSem.semesterNumber}** (${latestSem.credits} credits).`
+        : 'No SGPA records published yet.';
     } else {
-      response = `### CEHP Academic Assistant\n\n` +
-                 `I am grounded directly in your institutional academic records (Registration: **${studentProfile?.registrationNumber || '212222040001'}**, CGPA: **${cgpaResult.cgpa.toFixed(2)}**, Cleared Credits: **${totalCredits}**).\n\n` +
-                 `**Inquiries You Can Ask:**\n` +
-                 `1. *"How much SGPA do I need next semester to reach target CGPA 9.0?"*\n` +
-                 `2. *"Explain how my SGPA was calculated."*\n` +
-                 `3. *"Which subjects have I failed or have arrears in?"*\n` +
-                 `4. *"Show my complete semester-wise examination history."*\n` +
-                 `5. *"Create a study plan for my weak subjects."*`;
+      fallbackResponse = `### CEHP Academic Assistant\n\n` +
+        `I am grounded directly in your institutional academic records (Registration: **${studentProfile?.registrationNumber || '212222040001'}**, CGPA: **${cgpaResult.cgpa.toFixed(2)}**, Cleared Credits: **${totalCredits}**).\n\n` +
+        `**Common Inquiries You Can Ask:**\n` +
+        `1. *"How much SGPA do I need next semester to reach target CGPA 9.0?"*\n` +
+        `2. *"Explain how my SGPA was calculated."*\n` +
+        `3. *"Compare my last two semesters."*\n` +
+        `4. *"Which subjects have I failed or have arrears in?"*\n` +
+        `5. *"Explain why my CGPA decreased."*\n` +
+        `6. *"Create a study plan for my weak subjects."*`;
     }
 
     res.json({
       success: true,
       data: {
-        answer: response,
+        answer: fallbackResponse,
         mode: 'rules-based',
+        intent,
+        suggestions,
         disclaimer: 'Computed deterministically from your official academic records and CBCS grading regulations.',
       },
     });

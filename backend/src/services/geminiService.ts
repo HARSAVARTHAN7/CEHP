@@ -182,14 +182,28 @@ export async function chatWithGemini(
   const candidateModels = [getGeminiModelName(), 'gemini-3.5-flash-lite', 'gemini-3.5-flash'];
   const timeoutMs = options.timeoutMs ?? 15000;
 
-  // Prepare chat history (all messages except the latest user message)
-  const history = messages.slice(0, -1).map((m) => ({
-    role: m.role,
-    parts: [{ text: m.text }],
-  }));
+  // Prepare and sanitize chat history (Gemini requires history to start with 'user' and alternate)
+  const rawHistory = messages.slice(0, -1);
+  const firstUserIdx = rawHistory.findIndex((m) => m.role === 'user');
+  const validHistorySlice = firstUserIdx >= 0 ? rawHistory.slice(firstUserIdx) : [];
+
+  const sanitizedHistory: { role: 'user' | 'model'; parts: { text: string }[] }[] = [];
+  for (const m of validHistorySlice) {
+    if (!m.text || m.text.trim() === '') continue;
+    const lastItem = sanitizedHistory[sanitizedHistory.length - 1];
+    if (!lastItem || lastItem.role !== m.role) {
+      sanitizedHistory.push({
+        role: m.role,
+        parts: [{ text: m.text.trim() }],
+      });
+    }
+  }
+
+  // Keep only the most recent 10 messages to maintain relevant context
+  const history = sanitizedHistory.slice(-10);
 
   const latestMessage = messages[messages.length - 1];
-  if (!latestMessage || !latestMessage.text) {
+  if (!latestMessage || !latestMessage.text || latestMessage.text.trim() === '') {
     throw new Error('Chat requires at least one user query message.');
   }
 
