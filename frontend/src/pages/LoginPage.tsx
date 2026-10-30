@@ -173,6 +173,7 @@ export default function LoginPage() {
 
   const parseAuthError = (err: any): string => {
     const rawData = err.response?.data;
+    const status = err.response?.status;
     const serverMessage =
       typeof rawData === 'object' && rawData?.message
         ? rawData.message
@@ -184,15 +185,17 @@ export default function LoginPage() {
       return serverMessage;
     }
 
-    if (err.code === 'ERR_NETWORK' || !err.response || err.response?.status === 502 || err.response?.status === 503) {
-      return 'Cannot connect to backend service. Please verify the backend is running on http://localhost:5000 (run `npm run dev` or `npm run dev:backend`).';
+    if (err.code === 'ERR_NETWORK' || !err.response) {
+      return 'Network connection issue: Cannot reach backend server on http://localhost:5000.';
     }
 
-    if (err.response?.status === 500) {
-      if (typeof rawData === 'string' && rawData.includes('ECONNREFUSED')) {
-        return 'Cannot connect to backend server on port 5000. Please start the backend service.';
-      }
-      return 'Authentication server error. Backend service encountered an issue; please verify backend service and database connectivity.';
+    if (status === 502 || status === 503) {
+      return 'Backend service or database is currently starting up. Please retry in a few moments.';
+    }
+
+    if (status) {
+      const cleanSnippet = typeof rawData === 'string' ? rawData.replace(/<[^>]+>/g, '').trim().slice(0, 120) : '';
+      return `Server error (${status})${cleanSnippet ? ': ' + cleanSnippet : '. Please check credentials or backend service.'}`;
     }
 
     return err.message || 'Login failed. Please check your credentials.';

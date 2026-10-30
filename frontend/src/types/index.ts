@@ -7,6 +7,8 @@ export interface User {
   email: string;
   role: UserRole;
   accountStatus: string;
+  assignedDepartmentIds?: string[];
+  department?: string;
   studentProfile?: StudentProfile;
   facultyProfile?: FacultyProfile;
   lastLoginAt?: string;
