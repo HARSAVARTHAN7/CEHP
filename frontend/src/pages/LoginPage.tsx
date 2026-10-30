@@ -35,8 +35,8 @@ const ROLES: DemoRole[] = [
   {
     key: 'student',
     roleName: 'Student',
-    name: 'Aarav Sharma',
-    desc: 'Semester 5 CSE · Reg: CSE2023001',
+    name: 'Arjun Sharma',
+    desc: 'Semester 5 CSE · Reg: 212222040001',
     email: 'student1@cehp.edu',
     icon: GraduationCap,
     color: 'from-emerald-500/20 to-teal-500/10 border-emerald-500/30 hover:border-emerald-500/70',
@@ -47,7 +47,7 @@ const ROLES: DemoRole[] = [
   {
     key: 'faculty',
     roleName: 'Faculty',
-    name: 'Dr. K. Vignesh',
+    name: 'Dr. Meena Krishnan',
     desc: 'Asst. Professor · Dept. of CSE',
     email: 'faculty1@cehp.edu',
     icon: BookOpen,
@@ -59,7 +59,7 @@ const ROLES: DemoRole[] = [
   {
     key: 'hod',
     roleName: 'HOD',
-    name: 'Prof. S. Meenakshi',
+    name: 'Dr. Suresh Babu',
     desc: 'Head of Department · CSE',
     email: 'hod.cse@cehp.edu',
     icon: Users,
@@ -71,7 +71,7 @@ const ROLES: DemoRole[] = [
   {
     key: 'exam_officer',
     roleName: 'Exam Officer',
-    name: 'Dr. Ramesh Kumar',
+    name: 'Ms. Priya Nair',
     desc: 'Office of the Controller of Exams',
     email: 'examofficer@cehp.edu',
     icon: FileCheck2,
@@ -83,7 +83,7 @@ const ROLES: DemoRole[] = [
   {
     key: 'admin',
     roleName: 'Administrator',
-    name: 'System Admin',
+    name: 'Dr. Rajesh Kumar',
     desc: 'Central Institutional Governance',
     email: 'admin@cehp.edu',
     icon: ShieldCheck,
@@ -126,7 +126,7 @@ export default function LoginPage() {
       if (serverMessage) {
         setError(serverMessage);
       } else if (err.code === 'ERR_NETWORK' || !err.response) {
-        setError('Cannot connect to the backend server. Please verify your connection.');
+        setError('Cannot connect to the backend server. Please verify the backend is running on http://localhost:5000.');
       } else {
         setError(err.message || 'Login failed. Please check your credentials.');
       }
@@ -142,7 +142,14 @@ export default function LoginPage() {
       await login(role.email, 'Demo@1234');
       navigate('/dashboard');
     } catch (err: any) {
-      setError(err?.message || 'Login failed for selected role.');
+      const serverMessage = err.response?.data?.message;
+      if (serverMessage) {
+        setError(serverMessage);
+      } else if (err.code === 'ERR_NETWORK' || !err.response) {
+        setError('Cannot connect to the backend server. Please verify the backend is running on http://localhost:5000.');
+      } else {
+        setError(err?.message || 'Login failed for selected role.');
+      }
     } finally {
       setActiveLoggingRole(null);
     }
