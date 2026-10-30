@@ -11,15 +11,17 @@ import {
 } from '../controllers/authController';
 import { authenticate } from '../middleware/auth';
 import { validateBody } from '../middleware/validate';
+import { config } from '../config/env';
 
 const router = Router();
 
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 10,
+  max: config.nodeEnv === 'production' ? 50 : 1000,
   message: { success: false, message: 'Too many login attempts, try again in 15 minutes' },
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req) => config.nodeEnv !== 'production' || req.ip === '127.0.0.1' || req.ip === '::1',
 });
 
 const loginSchema = z.object({

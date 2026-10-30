@@ -22,29 +22,11 @@ export async function performanceSummary(req: AuthRequest, res: Response, next: 
   try {
     const studentId = req.userRole === 'STUDENT' ? req.userId : req.body.studentId;
 
-    if (mongoose.connection.readyState !== 1 || !mongoose.isValidObjectId(studentId)) {
-      res.json({
-        success: true,
-        data: {
-          overallCGPA: 8.45,
-          performanceTrend: 'IMPROVING',
-          strongSubjects: [
-            { name: 'Operating Systems (O)', grade: 'O', point: 10 },
-            { name: 'Database Management Systems (A+)', grade: 'A+', point: 9 },
-          ],
-          weakSubjects: [],
-          semesterProgression: [
-            { semesterNumber: 1, sgpa: 8.1 },
-            { semesterNumber: 2, sgpa: 8.3 },
-            { semesterNumber: 3, sgpa: 8.5 },
-            { semesterNumber: 4, sgpa: 8.6 },
-          ],
-          totalCleared: 18,
-          arrearsCount: 0,
-          mode: 'rules-based',
-        },
-      });
-      return;
+    if (mongoose.connection.readyState !== 1) {
+      return next(new AppError('Unable to generate performance summary: Database connection is unavailable', 503));
+    }
+    if (!mongoose.isValidObjectId(studentId)) {
+      return next(new AppError('Valid student identifier is required', 400));
     }
 
     const results = await ResultRecord.find({
@@ -53,6 +35,22 @@ export async function performanceSummary(req: AuthRequest, res: Response, next: 
     })
       .populate('subjectId', 'code name credits')
       .populate('semesterId', 'semesterNumber academicYear');
+
+    if (results.length === 0) {
+      res.json({
+        success: true,
+        data: {
+          overallCGPA: 0,
+          performanceTrend: 'STABLE',
+          strongSubjects: [],
+          weakSubjects: [],
+          recommendations: ['No examination records found yet for this student.'],
+          semesterProgress: [],
+          mode: 'rules-based',
+        },
+      });
+      return;
+    }
 
     const studentProfile = await StudentProfile.findOne({ userId: studentId });
     const academicRule = studentProfile
@@ -71,7 +69,7 @@ export async function performanceSummary(req: AuthRequest, res: Response, next: 
     // Group by semester
     const semMap = new Map<string, typeof results>();
     for (const r of results) {
-      const key = String((r.semesterId as any)._id || r.semesterId);
+      const key = String((r.semesterId as any)?._id || r.semesterId || 'unknown');
       if (!semMap.has(key)) semMap.set(key, []);
       semMap.get(key)!.push(r);
     }
@@ -79,9 +77,9 @@ export async function performanceSummary(req: AuthRequest, res: Response, next: 
     const semesterStats: { semesterNumber: number; sgpa: number; credits: number; earnedCredits: number }[] = [];
     for (const [, semResults] of semMap) {
       const sgpaResult = calculateSGPA(semResults as any, rule);
-      const sem = semResults[0].semesterId as any;
+      const sem = semResults[0]?.semesterId as any;
       semesterStats.push({
-        semesterNumber: sem.semesterNumber,
+        semesterNumber: sem?.semesterNumber || 1,
         sgpa: sgpaResult.sgpa,
         credits: sgpaResult.totalCredits,
         earnedCredits: sgpaResult.earnedCredits,
@@ -92,13 +90,17 @@ export async function performanceSummary(req: AuthRequest, res: Response, next: 
 
     // Weak subjects: F or below 55%
     const weakSubjects = results
-      .filter((r) => r.resultStatus === 'FAIL' || (r.totalMarks / r.maximumMarks) * 100 < 55)
-      .map((r) => ({ name: (r.subjectId as any).name, grade: r.grade, percentage: Math.round((r.totalMarks / r.maximumMarks) * 100) }));
+      .filter((r) => r.resultStatus === 'FAIL' || (r.maximumMarks > 0 && (r.totalMarks / r.maximumMarks) * 100 < 55))
+      .map((r) => ({
+        name: (r.subjectId as any)?.name || 'Subject',
+        grade: r.grade,
+        percentage: r.maximumMarks > 0 ? Math.round((r.totalMarks / r.maximumMarks) * 100) : 0,
+      }));
 
     // Strong subjects: A+ or O
     const strongSubjects = results
       .filter((r) => ['O', 'A+', 'A'].includes(r.grade))
-      .map((r) => ({ name: (r.subjectId as any).name, grade: r.grade }));
+      .map((r) => ({ name: (r.subjectId as any)?.name || 'Subject', grade: r.grade }));
 
     const structuredData = {
       cgpa: cgpaResult.cgpa,

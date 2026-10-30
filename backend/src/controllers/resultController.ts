@@ -203,7 +203,7 @@ export async function getMyAnalytics(req: AuthRequest, res: Response, next: Next
 
     const semesterMap = new Map<string, typeof allResults>();
     for (const result of allResults) {
-      const semId = String(result.semesterId._id || result.semesterId);
+      const semId = String((result.semesterId as any)?._id || result.semesterId || 'unknown');
       if (!semesterMap.has(semId)) semesterMap.set(semId, []);
       semesterMap.get(semId)!.push(result);
     }

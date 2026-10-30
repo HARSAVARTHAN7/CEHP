@@ -39,12 +39,7 @@ export default function AIAssistantPage() {
     retry: false,
   });
 
-  const summary = summaryRes?.data?.data || {
-    overallCGPA: 8.45,
-    performanceTrend: 'IMPROVING',
-    strongSubjects: [{ name: 'Operating Systems (O)' }, { name: 'Database Systems (A+)' }],
-    weakSubjects: [],
-  };
+  const summary = summaryRes?.data?.data || null;
 
   const { data: arrearsRes } = useQuery({
     queryKey: ['myArrears'],
@@ -158,23 +153,32 @@ export default function AIAssistantPage() {
               <div className="flex justify-between items-center py-1 border-b border-slate-200 dark:border-slate-800/80">
                 <span className="text-slate-500 dark:text-slate-400 font-medium">Cumulative CGPA</span>
                 <span className="text-sm font-extrabold text-indigo-600 dark:text-indigo-400 font-mono">
-                  {summary.overallCGPA?.toFixed(2) || '8.45'}
+                  {summary?.overallCGPA !== undefined ? summary.overallCGPA.toFixed(2) : '—'}
                 </span>
               </div>
               <div className="flex justify-between items-center py-1 border-b border-slate-200 dark:border-slate-800/80">
                 <span className="text-slate-500 dark:text-slate-400 font-medium">Trajectory</span>
                 <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30">
-                  {summary.performanceTrend || 'IMPROVING'}
+                  {summary?.performanceTrend || 'STABLE'}
                 </span>
               </div>
               <div>
                 <p className="text-slate-500 dark:text-slate-400 font-medium mb-1.5">Top Scoring Courses</p>
-                <span className="block text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800/60 px-2.5 py-1 rounded-lg mb-1 font-mono">
-                  Operating Systems (Grade O)
-                </span>
-                <span className="block text-indigo-800 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800/60 px-2.5 py-1 rounded-lg font-mono">
-                  Database Systems (Grade A+)
-                </span>
+                {summary?.strongSubjects && summary.strongSubjects.length > 0 ? (
+                  summary.strongSubjects.slice(0, 3).map((sub: any, i: number) => (
+                    <span
+                      key={i}
+                      className="block text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800/60 px-2.5 py-1 rounded-lg mb-1 font-mono text-xs truncate"
+                      title={sub.name}
+                    >
+                      {sub.name}{sub.grade ? ` (${sub.grade})` : ''}
+                    </span>
+                  ))
+                ) : (
+                  <span className="block text-slate-400 italic text-xs py-1">
+                    No high-scoring courses recorded yet
+                  </span>
+                )}
               </div>
             </div>
           </div>
