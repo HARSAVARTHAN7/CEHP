@@ -98,14 +98,25 @@ export default function AIAssistantPage() {
       console.error('Academic chat inquiry error:', err.response?.status, err.response?.data || err.message, err);
       let errorMsg = "The AI assistant encountered an unexpected processing issue. Please click below to retry.";
       if (err.response) {
+        const resData = err.response.data;
+        const serverMsg = typeof resData?.message === 'string'
+          ? resData.message
+          : typeof resData?.error?.message === 'string'
+            ? resData.error.message
+            : typeof resData === 'string' && resData.length < 200
+              ? resData
+              : null;
+
         if (err.response.status === 401) {
           errorMsg = "Your session has expired. Please log in again to continue.";
         } else if (err.response.status === 429) {
-          errorMsg = err.response.data?.message || "AI inquiry rate limit reached. Please wait a moment before trying again.";
+          errorMsg = serverMsg || "AI inquiry rate limit reached. Please wait a moment before trying again.";
         } else if (err.response.status === 503) {
-          errorMsg = "The academic records or AI service is temporarily unavailable. Please click below to retry.";
-        } else if (err.response.data?.message && typeof err.response.data.message === 'string') {
-          errorMsg = err.response.data.message;
+          errorMsg = serverMsg || "The academic records or AI service is temporarily unavailable. Please click below to retry.";
+        } else if (serverMsg) {
+          errorMsg = serverMsg;
+        } else if (err.response.status === 500) {
+          errorMsg = "Server connection issue on Vercel. Please ensure MONGODB_URI and GROQ_API_KEY are set in Vercel Project Settings, then retry.";
         } else {
           errorMsg = "Unable to process inquiry at this moment. Please click below to retry.";
         }

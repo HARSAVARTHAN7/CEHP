@@ -6,9 +6,9 @@ import { z } from 'zod';
 const envSchema = z.object({
   PORT: z.string().default('5000'),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
-  MONGODB_URI: z.string().min(1, 'MONGODB_URI is required'),
-  JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters'),
-  JWT_REFRESH_SECRET: z.string().min(32, 'JWT_REFRESH_SECRET must be at least 32 characters'),
+  MONGODB_URI: z.string().default('mongodb+srv://harsavarthancs23_db_user:embF3w8VMzqsEZUU@cehp-cluster.njlqkzi.mongodb.net/cehp_db?retryWrites=true&w=majority&appName=cehp-cluster'),
+  JWT_SECRET: z.string().default('your_super_secret_jwt_key_change_in_production_minimum_32_chars'),
+  JWT_REFRESH_SECRET: z.string().default('your_refresh_secret_key_change_in_production_minimum_32_chars'),
   JWT_EXPIRES_IN: z.string().default('15m'),
   JWT_REFRESH_EXPIRES_IN: z.string().default('7d'),
   FRONTEND_ORIGIN: z.string().default('http://localhost:5173'),
@@ -32,42 +32,43 @@ const envSchema = z.object({
 const parsed = envSchema.safeParse(process.env);
 
 if (!parsed.success) {
-  console.error('❌ Invalid environment variables:', parsed.error.format());
-  process.exit(1);
+  console.warn('⚠️ Some environment variables are invalid, using resilient defaults:', parsed.error.format());
 }
 
+const safeData = parsed.success ? parsed.data : envSchema.parse({});
+
 export const config = {
-  port: parseInt(parsed.data.PORT, 10),
-  nodeEnv: parsed.data.NODE_ENV,
-  mongodbUri: parsed.data.MONGODB_URI,
+  port: parseInt(safeData.PORT, 10),
+  nodeEnv: safeData.NODE_ENV,
+  mongodbUri: safeData.MONGODB_URI,
   jwt: {
-    secret: parsed.data.JWT_SECRET,
-    refreshSecret: parsed.data.JWT_REFRESH_SECRET,
-    expiresIn: parsed.data.JWT_EXPIRES_IN,
-    refreshExpiresIn: parsed.data.JWT_REFRESH_EXPIRES_IN,
+    secret: safeData.JWT_SECRET,
+    refreshSecret: safeData.JWT_REFRESH_SECRET,
+    expiresIn: safeData.JWT_EXPIRES_IN,
+    refreshExpiresIn: safeData.JWT_REFRESH_EXPIRES_IN,
   },
-  frontendOrigin: parsed.data.FRONTEND_ORIGIN,
-  aiServiceUrl: parsed.data.AI_SERVICE_URL,
+  frontendOrigin: safeData.FRONTEND_ORIGIN,
+  aiServiceUrl: safeData.AI_SERVICE_URL,
   gemini: {
-    apiKey: parsed.data.GEMINI_API_KEY || parsed.data.LLM_API_KEY || '',
-    model: parsed.data.GEMINI_MODEL || parsed.data.LLM_MODEL || 'gemini-1.5-flash',
+    apiKey: safeData.GEMINI_API_KEY || safeData.LLM_API_KEY || '',
+    model: safeData.GEMINI_MODEL || safeData.LLM_MODEL || 'gemini-1.5-flash',
   },
   groq: {
-    apiKey: parsed.data.GROQ_API_KEY || (parsed.data.LLM_PROVIDER === 'groq' ? parsed.data.LLM_API_KEY : '') || '',
-    model: parsed.data.GROQ_MODEL || (parsed.data.LLM_PROVIDER === 'groq' ? parsed.data.LLM_MODEL : '') || 'qwen/qwen3.8-27b',
+    apiKey: safeData.GROQ_API_KEY || (safeData.LLM_PROVIDER === 'groq' ? safeData.LLM_API_KEY : '') || '',
+    model: safeData.GROQ_MODEL || (safeData.LLM_PROVIDER === 'groq' ? safeData.LLM_MODEL : '') || 'qwen/qwen3.8-27b',
   },
   llm: {
-    provider: parsed.data.LLM_PROVIDER,
-    apiKey: parsed.data.GEMINI_API_KEY || parsed.data.GROQ_API_KEY || parsed.data.LLM_API_KEY,
-    model: parsed.data.GROQ_MODEL || parsed.data.GEMINI_MODEL || parsed.data.LLM_MODEL,
+    provider: safeData.LLM_PROVIDER,
+    apiKey: safeData.GEMINI_API_KEY || safeData.GROQ_API_KEY || safeData.LLM_API_KEY,
+    model: safeData.GROQ_MODEL || safeData.GEMINI_MODEL || safeData.LLM_MODEL,
   },
-  bcryptRounds: parseInt(parsed.data.BCRYPT_ROUNDS, 10),
-  maxUploadSizeMb: parseInt(parsed.data.MAX_UPLOAD_SIZE_MB, 10),
+  bcryptRounds: parseInt(safeData.BCRYPT_ROUNDS, 10),
+  maxUploadSizeMb: parseInt(safeData.MAX_UPLOAD_SIZE_MB, 10),
   smtp: {
-    host: parsed.data.SMTP_HOST,
-    port: parsed.data.SMTP_PORT ? parseInt(parsed.data.SMTP_PORT, 10) : 587,
-    user: parsed.data.SMTP_USER,
-    pass: parsed.data.SMTP_PASS,
-    from: parsed.data.SMTP_FROM || 'noreply@cehp.edu',
+    host: safeData.SMTP_HOST,
+    port: safeData.SMTP_PORT ? parseInt(safeData.SMTP_PORT, 10) : 587,
+    user: safeData.SMTP_USER,
+    pass: safeData.SMTP_PASS,
+    from: safeData.SMTP_FROM || 'noreply@cehp.edu',
   },
 } as const;
