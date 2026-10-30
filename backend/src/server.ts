@@ -3,7 +3,9 @@ import { config } from './config/env';
 import { connectDB } from './config/database';
 import { logger } from './utils/logger';
 
-// Export app as default for Vercel Serverless Functions
+// Export app as default and CommonJS for Vercel Serverless Functions
+(app as any).default = app;
+module.exports = app;
 export default app;
 
 // Only bind HTTP port when running standalone (local dev / Docker), not inside Vercel serverless functions

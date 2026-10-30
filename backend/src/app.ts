@@ -93,4 +93,7 @@ prefixes.forEach((p) => {
 app.use(notFoundHandler);
 app.use(errorHandler);
 
+// Export Express app for both CommonJS and ES module environments
+(app as any).default = app;
+module.exports = app;
 export default app;
