@@ -7,8 +7,8 @@ async function startServer(): Promise<void> {
   try {
     await connectDB();
 
-    const server = app.listen(config.port, () => {
-      logger.info(`🚀 CEHP Backend running on http://localhost:${config.port}`);
+    const server = app.listen(config.port, '0.0.0.0', () => {
+      logger.info(`🚀 CEHP Backend running on http://localhost:${config.port} (0.0.0.0)`);
       logger.info(`📋 Environment: ${config.nodeEnv}`);
       logger.info(`🔗 Frontend: ${config.frontendOrigin}`);
     });

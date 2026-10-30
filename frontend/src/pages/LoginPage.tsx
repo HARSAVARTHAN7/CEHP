@@ -122,11 +122,20 @@ export default function LoginPage() {
       await login(data.email, data.password);
       navigate('/dashboard');
     } catch (err: any) {
-      const serverMessage = err.response?.data?.message;
+      const rawData = err.response?.data;
+      const serverMessage =
+        typeof rawData === 'object' && rawData?.message
+          ? rawData.message
+          : typeof rawData === 'string' && rawData.length > 0 && !rawData.includes('<html')
+          ? rawData
+          : undefined;
+
       if (serverMessage) {
         setError(serverMessage);
-      } else if (err.code === 'ERR_NETWORK' || !err.response) {
+      } else if (err.code === 'ERR_NETWORK' || !err.response || err.response?.status === 502 || err.response?.status === 503) {
         setError('Cannot connect to the backend server. Please verify the backend is running on http://localhost:5000.');
+      } else if (err.response?.status === 500) {
+        setError('Authentication server error. Please verify the backend service is running and database is reachable.');
       } else {
         setError(err.message || 'Login failed. Please check your credentials.');
       }
@@ -142,11 +151,20 @@ export default function LoginPage() {
       await login(role.email, 'Demo@1234');
       navigate('/dashboard');
     } catch (err: any) {
-      const serverMessage = err.response?.data?.message;
+      const rawData = err.response?.data;
+      const serverMessage =
+        typeof rawData === 'object' && rawData?.message
+          ? rawData.message
+          : typeof rawData === 'string' && rawData.length > 0 && !rawData.includes('<html')
+          ? rawData
+          : undefined;
+
       if (serverMessage) {
         setError(serverMessage);
-      } else if (err.code === 'ERR_NETWORK' || !err.response) {
+      } else if (err.code === 'ERR_NETWORK' || !err.response || err.response?.status === 502 || err.response?.status === 503) {
         setError('Cannot connect to the backend server. Please verify the backend is running on http://localhost:5000.');
+      } else if (err.response?.status === 500) {
+        setError('Authentication server error. Please verify the backend service is running and database is reachable.');
       } else {
         setError(err?.message || 'Login failed for selected role.');
       }
