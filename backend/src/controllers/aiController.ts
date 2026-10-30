@@ -359,17 +359,13 @@ export async function academicChat(req: AuthRequest, res: Response, next: NextFu
     let results: any[] = [];
     let studentProfile: any = null;
     let failedResults: any[] = [];
-    let totalPassed = 18;
-    let totalCredits = 96;
-    let semesterStats: { semesterNumber: number; sgpa: number; credits: number; earnedCredits: number }[] = [
-      { semesterNumber: 1, sgpa: 8.1, credits: 22, earnedCredits: 22 },
-      { semesterNumber: 2, sgpa: 8.3, credits: 24, earnedCredits: 24 },
-      { semesterNumber: 3, sgpa: 8.5, credits: 24, earnedCredits: 24 },
-      { semesterNumber: 4, sgpa: 8.6, credits: 26, earnedCredits: 26 },
-    ];
-    let cgpaResult = { cgpa: 8.45 };
+    let totalPassed = 0;
+    let totalCredits = 0;
+    let semesterStats: { semesterNumber: number; sgpa: number; credits: number; earnedCredits: number }[] = [];
+    let cgpaResult = { cgpa: 0 };
+    const isDbConnected = mongoose.connection.readyState === 1;
 
-    if (mongoose.connection.readyState === 1 && mongoose.isValidObjectId(studentId)) {
+    if (isDbConnected && mongoose.isValidObjectId(studentId)) {
       try {
         results = await ResultRecord.find({ studentId, publicationStatus: 'PUBLISHED' })
           .populate('subjectId', 'code name credits')

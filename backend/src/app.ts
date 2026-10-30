@@ -70,12 +70,23 @@ app.use(async (_req, _res, next) => {
 });
 
 // Health check
-const healthCheckHandler = (_req: express.Request, res: express.Response) => {
+const healthCheckHandler = async (_req: express.Request, res: express.Response) => {
   const state = mongoose.connection.readyState;
   const dbStatus = state === 1 ? 'connected' : state === 2 ? 'connecting' : 'disconnected';
+  let collectionsCount = 0;
+  if (state === 1 && mongoose.connection.db) {
+    try {
+      const cols = await mongoose.connection.db.listCollections().toArray();
+      collectionsCount = cols.length;
+    } catch {}
+  }
+
   res.json({
     status: 'ok',
     database: dbStatus,
+    databaseName: mongoose.connection.name || null,
+    collectionsCount,
+    hasMongoUriEnv: Boolean(process.env.MONGODB_URI || process.env.MONGO_URI),
     timestamp: new Date().toISOString(),
     service: 'CEHP Backend',
   });

@@ -17,10 +17,12 @@ export async function connectDB(retries = 1): Promise<void> {
     for (let attempt = 1; attempt <= retries; attempt++) {
       try {
         await mongoose.connect(config.mongodbUri, {
-          maxPoolSize: 5,
+          maxPoolSize: 2,
+          minPoolSize: 0,
           serverSelectionTimeoutMS: 3000,
           connectTimeoutMS: 3000,
-          socketTimeoutMS: 10000,
+          socketTimeoutMS: 15000,
+          bufferCommands: false,
         });
         logger.info('✅ MongoDB connected successfully');
         return;

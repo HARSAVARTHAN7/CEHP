@@ -38,7 +38,7 @@ const safeData = parsed.success ? parsed.data : envSchema.parse({});
 export const config = {
   port: parseInt(safeData.PORT, 10),
   nodeEnv: safeData.NODE_ENV,
-  mongodbUri: safeData.MONGODB_URI,
+  mongodbUri: (process.env.MONGODB_URI?.trim() || process.env.MONGO_URI?.trim() || process.env.MONGODB_URL?.trim() || process.env.DATABASE_URL?.trim() || safeData.MONGODB_URI),
   jwt: {
     secret: safeData.JWT_SECRET,
     refreshSecret: safeData.JWT_REFRESH_SECRET,

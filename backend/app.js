@@ -275557,7 +275557,7 @@ var safeData = parsed.success ? parsed.data : envSchema.parse({});
 var config = {
   port: parseInt(safeData.PORT, 10),
   nodeEnv: safeData.NODE_ENV,
-  mongodbUri: safeData.MONGODB_URI,
+  mongodbUri: process.env.MONGODB_URI?.trim() || process.env.MONGO_URI?.trim() || process.env.MONGODB_URL?.trim() || process.env.DATABASE_URL?.trim() || safeData.MONGODB_URI,
   jwt: {
     secret: safeData.JWT_SECRET,
     refreshSecret: safeData.JWT_REFRESH_SECRET,
@@ -275623,10 +275623,12 @@ async function connectDB(retries = 1) {
     for (let attempt = 1; attempt <= retries; attempt++) {
       try {
         await import_mongoose.default.connect(config.mongodbUri, {
-          maxPoolSize: 5,
+          maxPoolSize: 2,
+          minPoolSize: 0,
           serverSelectionTimeoutMS: 3e3,
           connectTimeoutMS: 3e3,
-          socketTimeoutMS: 1e4
+          socketTimeoutMS: 15e3,
+          bufferCommands: false
         });
         logger.info("\u2705 MongoDB connected successfully");
         return;
@@ -281912,16 +281914,12 @@ async function academicChat(req, res, next) {
     let results = [];
     let studentProfile = null;
     let failedResults = [];
-    let totalPassed = 18;
-    let totalCredits = 96;
-    let semesterStats = [
-      { semesterNumber: 1, sgpa: 8.1, credits: 22, earnedCredits: 22 },
-      { semesterNumber: 2, sgpa: 8.3, credits: 24, earnedCredits: 24 },
-      { semesterNumber: 3, sgpa: 8.5, credits: 24, earnedCredits: 24 },
-      { semesterNumber: 4, sgpa: 8.6, credits: 26, earnedCredits: 26 }
-    ];
-    let cgpaResult = { cgpa: 8.45 };
-    if (import_mongoose20.default.connection.readyState === 1 && import_mongoose20.default.isValidObjectId(studentId)) {
+    let totalPassed = 0;
+    let totalCredits = 0;
+    let semesterStats = [];
+    let cgpaResult = { cgpa: 0 };
+    const isDbConnected = import_mongoose20.default.connection.readyState === 1;
+    if (isDbConnected && import_mongoose20.default.isValidObjectId(studentId)) {
       try {
         results = await ResultRecord.find({ studentId, publicationStatus: "PUBLISHED" }).populate("subjectId", "code name credits").populate("semesterId", "semesterNumber academicYear");
         studentProfile = await StudentProfile.findOne({ userId: studentId });
@@ -282671,12 +282669,23 @@ app.use(async (_req, _res, next) => {
   }
   next();
 });
-var healthCheckHandler = (_req, res) => {
+var healthCheckHandler = async (_req, res) => {
   const state = import_mongoose21.default.connection.readyState;
   const dbStatus = state === 1 ? "connected" : state === 2 ? "connecting" : "disconnected";
+  let collectionsCount = 0;
+  if (state === 1 && import_mongoose21.default.connection.db) {
+    try {
+      const cols = await import_mongoose21.default.connection.db.listCollections().toArray();
+      collectionsCount = cols.length;
+    } catch {
+    }
+  }
   res.json({
     status: "ok",
     database: dbStatus,
+    databaseName: import_mongoose21.default.connection.name || null,
+    collectionsCount,
+    hasMongoUriEnv: Boolean(process.env.MONGODB_URI || process.env.MONGO_URI),
     timestamp: (/* @__PURE__ */ new Date()).toISOString(),
     service: "CEHP Backend"
   });
