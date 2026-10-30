@@ -48,52 +48,37 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(cookieParser());
 
-// Serverless DB connection middleware
-app.use(async (_req, _res, next) => {
-  if (mongoose.connection.readyState === 0 && config.mongodbUri) {
-    let timer: NodeJS.Timeout | undefined;
-    try {
-      await Promise.race([
-        connectDB(1),
-        new Promise((resolve) => {
-          timer = setTimeout(resolve, 2000);
-          if (timer.unref) timer.unref();
-        }),
-      ]);
-    } catch {
-      // Standby mode
-    } finally {
-      if (timer) clearTimeout(timer);
-    }
-  }
-  next();
-});
-
-// Health check
-const healthCheckHandler = async (_req: express.Request, res: express.Response) => {
+// Fast, non-blocking Health check (placed before any database middleware so health checks never time out)
+const healthCheckHandler = (_req: express.Request, res: express.Response) => {
   const state = mongoose.connection.readyState;
   const dbStatus = state === 1 ? 'connected' : state === 2 ? 'connecting' : 'disconnected';
-  let collectionsCount = 0;
-  if (state === 1 && mongoose.connection.db) {
-    try {
-      const cols = await mongoose.connection.db.listCollections().toArray();
-      collectionsCount = cols.length;
-    } catch {}
+
+  // Trigger background connection if currently disconnected
+  if (state === 0 && config.mongodbUri) {
+    connectDB(1).catch(() => {});
   }
 
-  res.json({
+  res.status(200).json({
     status: 'ok',
     database: dbStatus,
     databaseName: mongoose.connection.name || null,
-    collectionsCount,
     hasMongoUriEnv: Boolean(process.env.MONGODB_URI || process.env.MONGO_URI),
+    groqModel: config.groq.model,
     timestamp: new Date().toISOString(),
     service: 'CEHP Backend',
   });
 };
 app.get('/health', healthCheckHandler);
-app.get('/api/v1/health', healthCheckHandler);
 app.get('/api/health', healthCheckHandler);
+app.get('/api/v1/health', healthCheckHandler);
+
+// Serverless DB connection middleware for API routes (non-blocking trigger)
+app.use((_req, _res, next) => {
+  if (mongoose.connection.readyState === 0 && config.mongodbUri) {
+    connectDB(1).catch(() => {});
+  }
+  next();
+});
 
 // API routes
 const prefixes = ['/api/v1', '/v1', '/api'];

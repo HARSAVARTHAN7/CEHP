@@ -282651,48 +282651,33 @@ app.use((0, import_morgan.default)("combined", {
 app.use(import_express7.default.json({ limit: "10mb" }));
 app.use(import_express7.default.urlencoded({ extended: true, limit: "10mb" }));
 app.use((0, import_cookie_parser.default)());
-app.use(async (_req, _res, next) => {
-  if (import_mongoose21.default.connection.readyState === 0 && config.mongodbUri) {
-    let timer;
-    try {
-      await Promise.race([
-        connectDB(1),
-        new Promise((resolve) => {
-          timer = setTimeout(resolve, 2e3);
-          if (timer.unref) timer.unref();
-        })
-      ]);
-    } catch {
-    } finally {
-      if (timer) clearTimeout(timer);
-    }
-  }
-  next();
-});
-var healthCheckHandler = async (_req, res) => {
+var healthCheckHandler = (_req, res) => {
   const state = import_mongoose21.default.connection.readyState;
   const dbStatus = state === 1 ? "connected" : state === 2 ? "connecting" : "disconnected";
-  let collectionsCount = 0;
-  if (state === 1 && import_mongoose21.default.connection.db) {
-    try {
-      const cols = await import_mongoose21.default.connection.db.listCollections().toArray();
-      collectionsCount = cols.length;
-    } catch {
-    }
+  if (state === 0 && config.mongodbUri) {
+    connectDB(1).catch(() => {
+    });
   }
-  res.json({
+  res.status(200).json({
     status: "ok",
     database: dbStatus,
     databaseName: import_mongoose21.default.connection.name || null,
-    collectionsCount,
     hasMongoUriEnv: Boolean(process.env.MONGODB_URI || process.env.MONGO_URI),
+    groqModel: config.groq.model,
     timestamp: (/* @__PURE__ */ new Date()).toISOString(),
     service: "CEHP Backend"
   });
 };
 app.get("/health", healthCheckHandler);
-app.get("/api/v1/health", healthCheckHandler);
 app.get("/api/health", healthCheckHandler);
+app.get("/api/v1/health", healthCheckHandler);
+app.use((_req, _res, next) => {
+  if (import_mongoose21.default.connection.readyState === 0 && config.mongodbUri) {
+    connectDB(1).catch(() => {
+    });
+  }
+  next();
+});
 var prefixes = ["/api/v1", "/v1", "/api"];
 prefixes.forEach((p) => {
   app.use(`${p}/auth`, authRoutes_default);
