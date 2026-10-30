@@ -1,11 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
   GraduationCap, Eye, EyeOff, Loader2, Sparkles, BookOpen,
-  Users, FileCheck2, ShieldCheck, ArrowRight, CheckCircle2, Sun, Moon
+  Users, FileCheck2, ShieldCheck, ArrowRight, CheckCircle2, Sun, Moon,
+  AlertTriangle, RefreshCw, Activity
 } from 'lucide-react';
 import { useAuth } from '../features/auth/AuthContext';
 import { useTheme } from '../features/theme/ThemeContext';
@@ -107,7 +109,53 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [activeLoggingRole, setActiveLoggingRole] = useState<string | null>(null);
+  const [isCheckingHealth, setIsCheckingHealth] = useState(false);
+  const [systemHealth, setSystemHealth] = useState<{
+    checked: boolean;
+    backendOnline: boolean;
+    dbStatus: 'connected' | 'connecting' | 'disconnected' | 'unknown';
+  }>({
+    checked: false,
+    backendOnline: false,
+    dbStatus: 'unknown',
+  });
   const { toggleTheme, effectiveTheme } = useTheme();
+
+  const checkHealth = useCallback(async () => {
+    setIsCheckingHealth(true);
+    try {
+      const res = await axios.get('http://localhost:5000/health', { timeout: 3500 });
+      setSystemHealth({
+        checked: true,
+        backendOnline: true,
+        dbStatus: res.data?.database || 'connected',
+      });
+      return true;
+    } catch {
+      try {
+        const res = await axios.get('/api/health', { timeout: 3500 });
+        setSystemHealth({
+          checked: true,
+          backendOnline: true,
+          dbStatus: res.data?.database || 'connected',
+        });
+        return true;
+      } catch {
+        setSystemHealth({
+          checked: true,
+          backendOnline: false,
+          dbStatus: 'disconnected',
+        });
+        return false;
+      }
+    } finally {
+      setIsCheckingHealth(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    checkHealth();
+  }, [checkHealth]);
 
   const {
     register,
@@ -116,29 +164,41 @@ export default function LoginPage() {
     formState: { errors, isSubmitting },
   } = useForm<LoginForm>({ resolver: zodResolver(loginSchema) });
 
+  const parseAuthError = (err: any): string => {
+    const rawData = err.response?.data;
+    const serverMessage =
+      typeof rawData === 'object' && rawData?.message
+        ? rawData.message
+        : typeof rawData === 'string' && rawData.length > 0 && !rawData.includes('<html')
+        ? rawData
+        : undefined;
+
+    if (serverMessage) {
+      return serverMessage;
+    }
+
+    if (err.code === 'ERR_NETWORK' || !err.response || err.response?.status === 502 || err.response?.status === 503) {
+      return 'Cannot connect to backend service. Please verify the backend is running on http://localhost:5000 (run `npm run dev` or `npm run dev:backend`).';
+    }
+
+    if (err.response?.status === 500) {
+      if (typeof rawData === 'string' && rawData.includes('ECONNREFUSED')) {
+        return 'Cannot connect to backend server on port 5000. Please start the backend service.';
+      }
+      return 'Authentication server error. Backend service encountered an issue; please verify backend service and database connectivity.';
+    }
+
+    return err.message || 'Login failed. Please check your credentials.';
+  };
+
   const onSubmit = async (data: LoginForm) => {
     try {
       setError('');
       await login(data.email, data.password);
       navigate('/dashboard');
     } catch (err: any) {
-      const rawData = err.response?.data;
-      const serverMessage =
-        typeof rawData === 'object' && rawData?.message
-          ? rawData.message
-          : typeof rawData === 'string' && rawData.length > 0 && !rawData.includes('<html')
-          ? rawData
-          : undefined;
-
-      if (serverMessage) {
-        setError(serverMessage);
-      } else if (err.code === 'ERR_NETWORK' || !err.response || err.response?.status === 502 || err.response?.status === 503) {
-        setError('Cannot connect to the backend server. Please verify the backend is running on http://localhost:5000.');
-      } else if (err.response?.status === 500) {
-        setError('Authentication server error. Please verify the backend service is running and database is reachable.');
-      } else {
-        setError(err.message || 'Login failed. Please check your credentials.');
-      }
+      setError(parseAuthError(err));
+      checkHealth();
     }
   };
 
@@ -151,23 +211,8 @@ export default function LoginPage() {
       await login(role.email, 'Demo@1234');
       navigate('/dashboard');
     } catch (err: any) {
-      const rawData = err.response?.data;
-      const serverMessage =
-        typeof rawData === 'object' && rawData?.message
-          ? rawData.message
-          : typeof rawData === 'string' && rawData.length > 0 && !rawData.includes('<html')
-          ? rawData
-          : undefined;
-
-      if (serverMessage) {
-        setError(serverMessage);
-      } else if (err.code === 'ERR_NETWORK' || !err.response || err.response?.status === 502 || err.response?.status === 503) {
-        setError('Cannot connect to the backend server. Please verify the backend is running on http://localhost:5000.');
-      } else if (err.response?.status === 500) {
-        setError('Authentication server error. Please verify the backend service is running and database is reachable.');
-      } else {
-        setError(err?.message || 'Login failed for selected role.');
-      }
+      setError(parseAuthError(err));
+      checkHealth();
     } finally {
       setActiveLoggingRole(null);
     }
@@ -230,10 +275,72 @@ export default function LoginPage() {
               </div>
               <h2 className="text-lg font-bold text-white">Select Your Role for Instant Login</h2>
             </div>
-            <div className="text-xs text-slate-400">
-              Demo Password: <span className="text-indigo-400 font-mono font-bold bg-slate-900 px-2 py-0.5 rounded border border-slate-800">Demo@1234</span>
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              {/* Live Backend & DB Status Pill */}
+              <button
+                type="button"
+                onClick={checkHealth}
+                title="Click to re-check backend & database health"
+                className={cn(
+                  'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-semibold transition-all cursor-pointer',
+                  !systemHealth.checked
+                    ? 'bg-slate-800 text-slate-400 border-slate-700'
+                    : systemHealth.backendOnline
+                    ? systemHealth.dbStatus === 'connected'
+                      ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400'
+                      : 'bg-amber-500/15 border-amber-500/30 text-amber-400'
+                    : 'bg-rose-500/15 border-rose-500/30 text-rose-400'
+                )}
+              >
+                <span className={cn(
+                  'w-2 h-2 rounded-full',
+                  !systemHealth.checked
+                    ? 'bg-slate-400'
+                    : systemHealth.backendOnline
+                    ? systemHealth.dbStatus === 'connected'
+                      ? 'bg-emerald-400 animate-pulse'
+                      : 'bg-amber-400 animate-pulse'
+                    : 'bg-rose-400'
+                )} />
+                <span>
+                  {!systemHealth.checked
+                    ? 'Checking Status...'
+                    : systemHealth.backendOnline
+                    ? systemHealth.dbStatus === 'connected'
+                      ? 'Backend & DB: Online'
+                      : 'Backend: Online · DB Connecting'
+                    : 'Backend: Offline'}
+                </span>
+                <RefreshCw className={cn('w-3 h-3 text-slate-400 ml-0.5', isCheckingHealth && 'animate-spin')} />
+              </button>
+
+              <div className="text-slate-400">
+                Password: <span className="text-indigo-400 font-mono font-bold bg-slate-900 px-2 py-0.5 rounded border border-slate-800">Demo@1234</span>
+              </div>
             </div>
           </div>
+
+          {/* Global Alert when Error or Backend Offline */}
+          {error && (
+            <div className="p-3.5 bg-rose-500/15 border border-rose-500/30 rounded-2xl text-rose-300 text-xs flex items-start gap-3 shadow-lg">
+              <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <div className="font-semibold">{error}</div>
+                {!systemHealth.backendOnline && systemHealth.checked && (
+                  <div className="mt-1 text-[11px] text-rose-400/90 font-mono bg-rose-950/40 p-2 rounded-lg border border-rose-800/40">
+                    💡 Tip: Start the backend server by running <code className="text-rose-200 font-bold">npm run dev</code> or <code className="text-rose-200 font-bold">npm run dev:backend</code> in your terminal.
+                  </div>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => setError('')}
+                className="text-rose-400 hover:text-white text-xs font-bold px-1.5 py-0.5"
+              >
+                ✕
+              </button>
+            </div>
+          )}
 
           {/* Role Cards Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">

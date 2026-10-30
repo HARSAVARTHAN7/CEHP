@@ -57,9 +57,19 @@ app.use(async (_req, _res, next) => {
 });
 
 // Health check
-app.get('/health', (_req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString(), service: 'CEHP Backend' });
-});
+const healthCheckHandler = (_req: express.Request, res: express.Response) => {
+  const state = mongoose.connection.readyState;
+  const dbStatus = state === 1 ? 'connected' : state === 2 ? 'connecting' : 'disconnected';
+  res.json({
+    status: 'ok',
+    database: dbStatus,
+    timestamp: new Date().toISOString(),
+    service: 'CEHP Backend',
+  });
+};
+app.get('/health', healthCheckHandler);
+app.get('/api/v1/health', healthCheckHandler);
+app.get('/api/health', healthCheckHandler);
 
 // API routes
 const prefixes = ['/api/v1', '/v1', '/api'];

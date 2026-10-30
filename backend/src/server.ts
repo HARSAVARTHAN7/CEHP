@@ -5,12 +5,15 @@ import { logger } from './utils/logger';
 
 async function startServer(): Promise<void> {
   try {
-    await connectDB();
-
     const server = app.listen(config.port, '0.0.0.0', () => {
       logger.info(`🚀 CEHP Backend running on http://localhost:${config.port} (0.0.0.0)`);
       logger.info(`📋 Environment: ${config.nodeEnv}`);
       logger.info(`🔗 Frontend: ${config.frontendOrigin}`);
+    });
+
+    // Connect to database in background
+    connectDB().catch((err) => {
+      logger.warn('Initial MongoDB connection deferred or failed:', err?.message || err);
     });
 
     // Graceful shutdown
