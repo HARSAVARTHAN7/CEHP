@@ -4,11 +4,13 @@
     "backend": {
       "root": "backend",
       "framework": "express",
+      "buildCommand": "npm run build",
       "entrypoint": "app.js"
     },
     "frontend": {
       "root": "frontend",
       "framework": "vite",
+      "buildCommand": "npm run build",
       "rewrites": [
         {
           "source": "/(.*)",
