@@ -180,9 +180,9 @@ export async function chatWithGemini(
 
   const client = getClient();
   const candidateModels = [getGeminiModelName(), 'gemini-3.5-flash-lite', 'gemini-3.5-flash'];
-  const timeoutMs = options.timeoutMs ?? 15000;
+  const timeoutMs = options.timeoutMs ?? 10000;
 
-  // Prepare and sanitize chat history (Gemini requires history to start with 'user' and alternate)
+  // Prepare and sanitize chat history (Gemini requires history to start with 'user', alternate, and end with 'model')
   const rawHistory = messages.slice(0, -1);
   const firstUserIdx = rawHistory.findIndex((m) => m.role === 'user');
   const validHistorySlice = firstUserIdx >= 0 ? rawHistory.slice(firstUserIdx) : [];
@@ -199,7 +199,12 @@ export async function chatWithGemini(
     }
   }
 
-  // Keep only the most recent 10 messages to maintain relevant context
+  // Ensure history ends with 'model' so that chat.sendMessage(latestMessage) is a valid alternating 'user' turn
+  while (sanitizedHistory.length > 0 && sanitizedHistory[sanitizedHistory.length - 1].role !== 'model') {
+    sanitizedHistory.pop();
+  }
+
+  // Keep only the most recent complete turns (up to 10 messages)
   const history = sanitizedHistory.slice(-10);
 
   const latestMessage = messages[messages.length - 1];

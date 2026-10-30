@@ -17,8 +17,8 @@ router.use(authenticate);
 
 const aiChatLimiter = rateLimit({
   windowMs: 1 * 60 * 1000, // 1 minute
-  max: 30, // max 30 requests per minute
-  message: { success: false, message: 'Too many AI inquiries submitted. Please wait 1 minute before asking more questions.' },
+  max: process.env.NODE_ENV === 'production' ? 60 : 150, // generous allowance in dev
+  message: { success: false, message: 'Too many AI inquiries submitted. Please wait a moment before asking more questions.' },
   standardHeaders: true,
   legacyHeaders: false,
 });

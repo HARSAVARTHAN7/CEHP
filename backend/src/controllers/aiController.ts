@@ -1,6 +1,7 @@
 import { Response, NextFunction } from 'express';
 import mongoose from 'mongoose';
 import { AuthRequest } from '../middleware/auth';
+import { User } from '../models/User';
 import { ResultRecord } from '../models/ResultRecord';
 import { StudentProfile } from '../models/StudentProfile';
 import { AcademicRule } from '../models/AcademicRule';
@@ -367,6 +368,17 @@ export async function academicChat(req: AuthRequest, res: Response, next: NextFu
         .populate('semesterId', 'semesterNumber academicYear');
 
       studentProfile = await StudentProfile.findOne({ userId: studentId });
+      if (!studentProfile) {
+        const userDoc = await User.findById(studentId);
+        if (userDoc?.studentProfileId) {
+          studentProfile = await StudentProfile.findById(userDoc.studentProfileId);
+        }
+      }
+      if (results.length === 0 && studentProfile) {
+        results = await ResultRecord.find({ studentId: studentProfile._id, publicationStatus: 'PUBLISHED' })
+          .populate('subjectId', 'code name credits')
+          .populate('semesterId', 'semesterNumber academicYear');
+      }
 
       const fakeRule = {
         minPassPercentage: 50,

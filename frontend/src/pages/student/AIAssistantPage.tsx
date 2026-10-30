@@ -58,21 +58,24 @@ export default function AIAssistantPage() {
 
   const arrearsData = arrearsRes?.data?.data || arrearsRes?.data;
 
-  const sendMessage = async (text: string) => {
+  const sendMessage = async (text: string, isRetry: boolean = false) => {
     if (!text.trim() || isLoading) return;
 
     const queryText = text.trim();
-    const userMsg: Message = { role: 'user', content: queryText };
-    setMessages((prev) => [...prev, userMsg]);
+    if (!isRetry) {
+      const userMsg: Message = { role: 'user', content: queryText };
+      setMessages((prev) => [...prev, userMsg]);
+    }
     setInput('');
     setIsLoading(true);
 
     try {
-      const historyPayload = messages
-        .filter((m) => !m.isError)
+      // Build history excluding errors and excluding the current question
+      const currentHistory = messages
+        .filter((m) => !m.isError && m.content !== queryText)
         .map((m) => ({ role: m.role, content: m.content }));
 
-      const res = await aiApi.chat(queryText, historyPayload);
+      const res = await aiApi.chat(queryText, currentHistory);
       const aiData = res.data?.data || res.data;
       const answer = aiData?.answer || aiData?.response || "Academic inquiry completed successfully.";
       const newSuggestions: string[] = Array.isArray(aiData?.suggestions) && aiData.suggestions.length > 0
@@ -80,7 +83,7 @@ export default function AIAssistantPage() {
         : suggestedQuestions;
 
       setMessages((prev) => [
-        ...prev,
+        ...prev.filter((m) => !m.isError),
         {
           role: 'assistant',
           content: answer,
@@ -91,11 +94,16 @@ export default function AIAssistantPage() {
 
       setSuggestedQuestions(newSuggestions);
     } catch (err: any) {
+      const errorMsg =
+        err.response?.data?.message ||
+        err.message ||
+        "Unable to complete AI inquiry due to a temporary service error. Please click below to retry.";
+
       setMessages((prev) => [
-        ...prev,
+        ...prev.filter((m) => !m.isError),
         {
           role: 'assistant',
-          content: "Unable to complete AI inquiry due to a temporary service error. Please click below to retry.",
+          content: errorMsg,
           mode: 'error',
           isError: true,
         },
@@ -108,9 +116,9 @@ export default function AIAssistantPage() {
   const handleRetryLastMessage = () => {
     const lastUserMsg = [...messages].reverse().find((m) => m.role === 'user');
     if (lastUserMsg) {
-      // Remove trailing error message if present
+      // Remove trailing error message and retry the question without duplicating it in chat
       setMessages((prev) => prev.filter((m) => !m.isError));
-      sendMessage(lastUserMsg.content);
+      sendMessage(lastUserMsg.content, true);
     }
   };
 
