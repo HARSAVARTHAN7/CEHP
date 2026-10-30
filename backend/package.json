@@ -2,7 +2,7 @@
   "name": "cehp-backend",
   "version": "1.0.0",
   "description": "CEHP Backend API",
-  "main": "dist/app.js",
+  "main": "index.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only --exit-child src/server.ts",
     "build": "tsc",
