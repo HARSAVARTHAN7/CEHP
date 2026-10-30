@@ -11,6 +11,7 @@ interface Message {
   mode?: string;
   suggestions?: string[];
   isError?: boolean;
+  failedText?: string;
 }
 
 const INITIAL_MESSAGE: Message = {
@@ -126,11 +127,13 @@ export default function AIAssistantPage() {
   };
 
   const handleRetryLastMessage = () => {
+    const lastErrorMsg = [...messages].reverse().find((m) => m.isError);
     const lastUserMsg = [...messages].reverse().find((m) => m.role === 'user');
-    if (lastUserMsg) {
-      // Remove trailing error message and retry the question without duplicating it in chat
+    const retryText = lastUserMsg?.content || lastErrorMsg?.failedText;
+    if (retryText) {
+      // Remove trailing error message and retry the question
       setMessages((prev) => prev.filter((m) => !m.isError));
-      sendMessage(lastUserMsg.content, true);
+      sendMessage(retryText, Boolean(lastUserMsg));
     }
   };
 
