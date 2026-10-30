@@ -4,8 +4,8 @@ import { logger } from '../utils/logger';
 
 let connectionPromise: Promise<void> | null = null;
 
-export async function connectDB(retries = 3): Promise<void> {
-  if (mongoose.connection.readyState === 1) {
+export async function connectDB(retries = 1): Promise<void> {
+  if (mongoose.connection.readyState === 1 || mongoose.connection.readyState === 2) {
     return;
   }
 
@@ -17,17 +17,17 @@ export async function connectDB(retries = 3): Promise<void> {
     for (let attempt = 1; attempt <= retries; attempt++) {
       try {
         await mongoose.connect(config.mongodbUri, {
-          maxPoolSize: 10,
-          serverSelectionTimeoutMS: 15000,
-          connectTimeoutMS: 15000,
-          socketTimeoutMS: 45000,
+          maxPoolSize: 5,
+          serverSelectionTimeoutMS: 3000,
+          connectTimeoutMS: 3000,
+          socketTimeoutMS: 10000,
         });
         logger.info('✅ MongoDB connected successfully');
         return;
       } catch (error: any) {
         logger.warn(`⚠️ MongoDB connection attempt ${attempt}/${retries} failed: ${error.message}`);
         if (attempt < retries) {
-          await new Promise((r) => setTimeout(r, 1500));
+          await new Promise((r) => setTimeout(r, 1000));
         }
       }
     }

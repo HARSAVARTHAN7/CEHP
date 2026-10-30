@@ -52,7 +52,10 @@ app.use(cookieParser());
 app.use(async (_req, _res, next) => {
   if (mongoose.connection.readyState === 0 && config.mongodbUri) {
     try {
-      await connectDB();
+      await Promise.race([
+        connectDB(1),
+        new Promise((resolve) => setTimeout(resolve, 2000)),
+      ]);
     } catch {
       // Standby mode
     }

@@ -119,7 +119,7 @@ export async function chatWithGroq(
   const client = getClient();
   const configuredModel = getGroqModelName();
   const candidateModels = [configuredModel, ...CANDIDATE_GROQ_MODELS.filter((m) => m !== configuredModel)];
-  const timeoutMs = options.timeoutMs ?? 10000;
+  const timeoutMs = options.timeoutMs ?? 4500;
 
   const groqMessages: Groq.Chat.ChatCompletionMessageParam[] = [];
   if (options.systemInstruction) {

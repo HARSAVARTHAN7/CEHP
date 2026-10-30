@@ -80,7 +80,7 @@ export async function generateGeminiText(prompt: string, options: GeminiTextOpti
 
   const client = getClient();
   const candidateModels = [getGeminiModelName(), 'gemini-3.1-flash-lite', 'gemini-3-flash-preview', 'gemini-3.5-flash'];
-  const timeoutMs = options.timeoutMs ?? 15000;
+  const timeoutMs = options.timeoutMs ?? 4500;
 
   let lastError: any = null;
 
@@ -180,7 +180,7 @@ export async function chatWithGemini(
 
   const client = getClient();
   const candidateModels = [getGeminiModelName(), 'gemini-3.1-flash-lite', 'gemini-3-flash-preview', 'gemini-3.5-flash'];
-  const timeoutMs = options.timeoutMs ?? 10000;
+  const timeoutMs = options.timeoutMs ?? 4500;
 
   // Prepare and sanitize chat history (Gemini requires history to start with 'user', alternate, and end with 'model')
   const rawHistory = messages.slice(0, -1);
