@@ -40,7 +40,10 @@ export async function connectDB(retries = 3): Promise<void> {
 }
 
 mongoose.connection.on('disconnected', () => {
-  logger.warn('⚠️ MongoDB disconnected');
+  logger.warn('⚠️ MongoDB disconnected. Attempting automatic reconnection...');
+  setTimeout(() => {
+    connectDB(2).catch(() => {});
+  }, 2000);
 });
 
 mongoose.connection.on('error', (err) => {
