@@ -202,10 +202,10 @@ export default function LoginPage() {
     try {
       setError('');
       await login(data.email, data.password);
-      navigate('/dashboard');
+      navigate('/dashboard', { replace: true });
     } catch (err: any) {
+      console.error('Login submit error:', err);
       setError(parseAuthError(err));
-      checkHealth();
     }
   };
 
@@ -216,10 +216,10 @@ export default function LoginPage() {
       setValue('email', role.email);
       setValue('password', 'Demo@1234');
       await login(role.email, 'Demo@1234');
-      navigate('/dashboard');
+      navigate('/dashboard', { replace: true });
     } catch (err: any) {
+      console.error(`Quick login error for role ${role.roleName}:`, err);
       setError(parseAuthError(err));
-      checkHealth();
     } finally {
       setActiveLoggingRole(null);
     }

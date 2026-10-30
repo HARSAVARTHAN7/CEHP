@@ -1,6 +1,10 @@
 import axios from 'axios';
 
-const apiBaseUrl = (import.meta as any).env?.VITE_API_URL || (import.meta as any).env?.VITE_API_BASE_URL || '';
+const rawApiUrl = (import.meta as any).env?.VITE_API_URL || (import.meta as any).env?.VITE_API_BASE_URL || '';
+// On localhost, use relative '/api/v1' so Vite proxy routes to backend seamlessly without CORS or CORP blocking
+const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+const apiBaseUrl = (isLocal && !rawApiUrl.startsWith('https://')) ? '' : rawApiUrl;
+
 const api = axios.create({
   baseURL: apiBaseUrl ? `${apiBaseUrl}/api/v1` : '/api/v1',
   withCredentials: true,
