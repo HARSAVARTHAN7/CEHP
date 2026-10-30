@@ -5,6 +5,8 @@ import crypto from 'crypto';
 import mongoose from 'mongoose';
 import { User, UserRole } from '../models/User';
 import { StudentProfile } from '../models/StudentProfile';
+import { FacultyProfile } from '../models/FacultyProfile';
+import { Department } from '../models/Department';
 import { config } from '../config/env';
 import { AppError } from '../utils/AppError';
 import { logger } from '../utils/logger';
@@ -45,8 +47,15 @@ function setCookies(res: Response, accessToken: string, refreshToken: string): v
 
 export async function login(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const { email, password } = req.body;
+    const { email, password } = req.body || {};
+    if (!email || !password || typeof email !== 'string' || typeof password !== 'string') {
+      return next(new AppError('Valid email and password are required', 400));
+    }
+
     const lowerEmail = email.toLowerCase().trim();
+    const targetEmail = (lowerEmail === 'controller@cehp.edu' || lowerEmail === 'coe@cehp.edu')
+      ? 'examofficer@cehp.edu'
+      : lowerEmail;
 
     // If MongoDB is not connected, allow mock only in test environment
     if (mongoose.connection.readyState !== 1) {
@@ -94,14 +103,11 @@ export async function login(req: Request, res: Response, next: NextFunction): Pr
 
     const user = await User.findOne({
       $or: [
+        { email: targetEmail },
         { email: lowerEmail },
         { customUserId: (email || '').toUpperCase().trim() },
       ],
-    })
-      .select('+passwordHash +loginAttempts +lockUntil')
-      .populate('studentProfileId')
-      .populate('facultyProfileId')
-      .populate('assignedDepartmentIds');
+    }).select('+passwordHash +loginAttempts +lockUntil');
 
     if (!user) {
       return next(new AppError('Invalid credentials', 401));
@@ -135,9 +141,26 @@ export async function login(req: Request, res: Response, next: NextFunction): Pr
     user.lastLoginAt = new Date();
     await user.save();
 
-    let studentProfile = user.studentProfileId;
-    if (!studentProfile && user.role === 'STUDENT') {
-      studentProfile = await StudentProfile.findOne({ userId: user._id }) as any;
+    let studentProfile = null;
+    if (user.role === 'STUDENT') {
+      try {
+        studentProfile = user.studentProfileId
+          ? await StudentProfile.findById(user.studentProfileId)
+          : await StudentProfile.findOne({ userId: user._id });
+      } catch {
+        // Non-fatal if profile lookup encounters an issue
+      }
+    }
+
+    let facultyProfile = null;
+    if (user.role === 'FACULTY' || user.role === 'HOD') {
+      try {
+        facultyProfile = user.facultyProfileId
+          ? await FacultyProfile.findById(user.facultyProfileId)
+          : await FacultyProfile.findOne({ userId: user._id });
+      } catch {
+        // Non-fatal if profile lookup encounters an issue
+      }
     }
 
     const accessToken = generateAccessToken(String(user._id), user.role, user.email);
@@ -156,11 +179,13 @@ export async function login(req: Request, res: Response, next: NextFunction): Pr
         assignedDepartmentIds: user.assignedDepartmentIds,
         customUserId: user.customUserId,
         studentProfile: studentProfile || undefined,
+        facultyProfile: facultyProfile || undefined,
         mustChangePassword: user.mustChangePassword,
       },
       accessToken,
     });
   } catch (err) {
+    logger.error('Login error:', err);
     next(err);
   }
 }
@@ -177,18 +202,27 @@ export async function getMe(req: AuthRequest, res: Response, next: NextFunction)
       return next(new AppError('Authentication service is currently unavailable: Database connection is unavailable', 503));
     }
 
-    const user = await User.findById(req.userId)
-      .populate('studentProfileId')
-      .populate('facultyProfileId')
-      .populate('assignedDepartmentIds');
-
+    const user = await User.findById(req.userId);
     if (!user) {
       return next(new AppError('User not found', 404));
     }
 
-    let studentProfile = user.studentProfileId;
-    if (!studentProfile && user.role === 'STUDENT') {
-      studentProfile = await StudentProfile.findOne({ userId: user._id }) as any;
+    let studentProfile = null;
+    if (user.role === 'STUDENT') {
+      try {
+        studentProfile = user.studentProfileId
+          ? await StudentProfile.findById(user.studentProfileId)
+          : await StudentProfile.findOne({ userId: user._id });
+      } catch {}
+    }
+
+    let facultyProfile = null;
+    if (user.role === 'FACULTY' || user.role === 'HOD') {
+      try {
+        facultyProfile = user.facultyProfileId
+          ? await FacultyProfile.findById(user.facultyProfileId)
+          : await FacultyProfile.findOne({ userId: user._id });
+      } catch {}
     }
 
     res.json({
@@ -201,11 +235,12 @@ export async function getMe(req: AuthRequest, res: Response, next: NextFunction)
         accountStatus: user.accountStatus,
         assignedDepartmentIds: user.assignedDepartmentIds,
         studentProfile: studentProfile || undefined,
-        facultyProfile: user.facultyProfileId,
+        facultyProfile: facultyProfile || undefined,
         lastLoginAt: user.lastLoginAt,
       },
     });
   } catch (err) {
+    logger.error('getMe error:', err);
     next(err);
   }
 }

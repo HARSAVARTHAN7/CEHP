@@ -73,7 +73,7 @@ const ROLES: DemoRole[] = [
     roleName: 'Exam Officer',
     name: 'Dr. Ramesh Kumar',
     desc: 'Office of the Controller of Exams',
-    email: 'controller@cehp.edu',
+    email: 'examofficer@cehp.edu',
     icon: FileCheck2,
     color: 'from-amber-500/20 to-orange-500/10 border-amber-500/30 hover:border-amber-500/70',
     badgeBg: 'bg-amber-500/20',

@@ -9,6 +9,7 @@ import { connectDB } from './config/database';
 import { config } from './config/env';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 import { logger } from './utils/logger';
+import './models';
 
 // Routes
 import authRoutes from './routes/authRoutes';
