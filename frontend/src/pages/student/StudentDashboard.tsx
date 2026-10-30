@@ -98,16 +98,16 @@ export default function StudentDashboard() {
   const tooltipBorder = isDark ? '#293548' : '#CBD5E1';
   const tooltipText = isDark ? '#F1F5F9' : '#0F172A';
 
-  const { data: analyticsRes, isLoading } = useQuery({
+  const { data: analyticsRes, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['student-analytics'],
     queryFn: () => studentApi.getAnalytics(),
-    retry: false,
+    retry: 1,
   });
 
   const { data: historyRes } = useQuery({
     queryKey: ['student-history'],
     queryFn: () => studentApi.getHistory(),
-    retry: false,
+    retry: 1,
   });
 
   const analytics: StudentAnalytics = analyticsRes?.data?.data || DEFAULT_ANALYTICS;
@@ -127,6 +127,24 @@ export default function StudentDashboard() {
 
   return (
     <div className="space-y-6">
+      {/* Error alert when API failed to load instead of silently substituting zero */}
+      {isError && (
+        <div className="p-4 rounded-2xl bg-rose-950/40 border border-rose-800/60 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-rose-200 text-sm">
+          <div className="flex items-center gap-2.5">
+            <AlertTriangle className="w-5 h-5 text-rose-400 shrink-0" />
+            <span>
+              Unable to load real-time academic records. Displaying cached placeholder data.
+            </span>
+          </div>
+          <button
+            onClick={() => refetch()}
+            className="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-semibold text-xs transition-all whitespace-nowrap"
+          >
+            Retry Connection
+          </button>
+        </div>
+      )}
+
       {/* Welcome Banner */}
       <div className="bg-[#0a0f1d] p-6 rounded-2xl border border-slate-800 shadow-xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
@@ -176,12 +194,13 @@ export default function StudentDashboard() {
         <StatCard
           title="Active Arrears"
           value={analytics.activeArrearsCount}
-          subtitle={analytics.activeArrearsCount > 0 ? 'Requires supplementary' : 'Clear academic standing'}
+          subtitle={analytics.activeArrearsCount > 0 ? `${analytics.activeArrearsCount} course(s) pending re-exam` : 'Clear academic standing'}
           icon={AlertTriangle}
-          color={analytics.activeArrearsCount > 0 ? 'amber' : 'green'}
+          color={analytics.activeArrearsCount > 0 ? 'red' : 'green'}
           to="/arrears"
         />
       </div>
+
 
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

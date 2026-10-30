@@ -65,6 +65,7 @@ export const authApi = {
 export const studentApi = {
   getHistory: () => api.get('/results/my-history'),
   getAnalytics: () => api.get('/results/my-analytics'),
+  getArrears: () => api.get('/results/my-arrears'),
 };
 
 // ---- Academic Sub-APIs ----
@@ -131,6 +132,8 @@ export const resultApi = {
   listResults: (params?: Record<string, any>) => api.get('/results', { params }),
   getMyHistory: () => api.get('/results/my-history'),
   getMyAnalytics: () => api.get('/results/my-analytics'),
+  getMyArrears: () => api.get('/results/my-arrears'),
+  getStudentArrears: (studentId: string) => api.get(`/students/${studentId}/arrears`),
   downloadTranscriptPDF: () => api.get('/students/me/transcript/pdf', { responseType: 'blob' }),
   create: (data: Record<string, unknown>) => api.post('/results', data),
   update: (id: string, data: Record<string, unknown>) => api.patch(`/results/${id}`, data),
@@ -142,7 +145,10 @@ export const resultApi = {
   approveResult: (id: string) => api.post(`/results/${id}/approve`),
   publish: (id: string) => api.post(`/results/${id}/publish`),
   publishExam: (id: string) => examinationApi.publishResults(id),
+  auditIntegrity: () => api.get('/results/audit-integrity'),
+  reconcile: (dryRun: boolean = true) => api.post('/results/reconcile', { dryRun }),
 };
+
 
 // ---- Users ----
 export const userApi = {

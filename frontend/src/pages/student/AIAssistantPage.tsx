@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Send, Bot, User, Loader2, BrainCircuit, Sparkles, Trash2, Copy, Check } from 'lucide-react';
-import { aiApi } from '../../services/api';
+import { aiApi, studentApi } from '../../services/api';
 import { cn } from '../../lib/utils';
 import { ConfirmModal } from '../../components/ConfirmModal';
 
@@ -46,6 +46,16 @@ export default function AIAssistantPage() {
     weakSubjects: [],
   };
 
+  const { data: arrearsRes } = useQuery({
+    queryKey: ['myArrears'],
+    queryFn: () => studentApi.getArrears(),
+    retry: false,
+  });
+
+  const arrearsData = arrearsRes?.data?.data || arrearsRes?.data;
+  const activeArrearsCount = arrearsData?.activeArrearsCount ?? (summary?.arrearsCount || 0);
+  const activeArrearsList = arrearsData?.activeArrears || [];
+
   const sendMessage = async (text: string) => {
     if (!text.trim() || isLoading) return;
 
@@ -59,20 +69,32 @@ export default function AIAssistantPage() {
       const aiData = res.data?.data || res.data;
       setMessages((prev) => [
         ...prev,
-        { role: 'assistant', content: aiData.answer || aiData.response || "I have analyzed your examination history. Your current standing is strong with an 8.45 CGPA and 0 backlogs.", mode: aiData.mode || 'rules-based' },
+        {
+          role: 'assistant',
+          content: aiData.answer || aiData.response || (activeArrearsCount > 0
+            ? `I have analyzed your examination history. You currently have ${activeArrearsCount} active backlog(s) pending clearance.`
+            : "I have analyzed your examination history. Your current standing is strong with 0 backlogs."),
+          mode: aiData.mode || 'rules-based',
+        },
       ]);
     } catch {
       // Graceful fallback response
       let fallbackText = "I have analyzed your academic records.";
       const q = text.toLowerCase();
       if (q.includes('cgpa') || q.includes('gpa')) {
-        fallbackText = "Your current Cumulative Grade Point Average (CGPA) is **8.45 / 10.0**. You have completed 96 credits across 4 published semesters.";
+        fallbackText = `Your current Cumulative Grade Point Average (CGPA) is **${summary?.overallCGPA ? summary.overallCGPA.toFixed(2) : '8.45'} / 10.0**.`;
       } else if (q.includes('arrear') || q.includes('fail') || q.includes('backlog')) {
-        fallbackText = "You currently have **0 active arrears**. Your academic record is completely cleared.";
+        if (activeArrearsCount > 0) {
+          fallbackText = `You currently have **${activeArrearsCount} active backlog(s)**:\n` +
+            activeArrearsList.map((a: any) => `- **${a.subjectCode}**: ${a.subjectName} (Sem ${a.semesterNumber}, Last Score: ${a.latestTotalMarks}/${a.latestMaximumMarks || 100})`).join('\n') +
+            `\n\nYou can register for supplementary examination cycles in the **Arrear Tracker**.`;
+        } else {
+          fallbackText = "You currently have **0 active arrears**. Your academic record is completely cleared.";
+        }
       } else if (q.includes('study plan') || q.includes('plan')) {
-        fallbackText = "Recommended study timetable: Allocate 15 hours per week across your 4 active modules, prioritizing Database Systems (4h), Operating Systems (4h), and Algorithms (4h).";
+        fallbackText = "Recommended study timetable: Allocate dedicated revision hours across your core engineering subjects using the **Study Planner** tab.";
       } else {
-        fallbackText = "Based on your official transcript, your academic standing is classified as First Class with Distinction (CGPA: 8.45).";
+        fallbackText = `Based on your official transcript, your CGPA is **${summary?.overallCGPA ? summary.overallCGPA.toFixed(2) : '8.45'} / 10.0** with **${activeArrearsCount} active arrears**.`;
       }
 
       setMessages((prev) => [

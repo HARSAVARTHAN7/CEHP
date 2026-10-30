@@ -104,23 +104,20 @@ export function StudentHistoryPage() {
     setShowClearConfirm(false);
   };
 
-  const { data: historyData, isLoading } = useQuery({
+  const { data: historyData, isLoading, isError, refetch } = useQuery({
     queryKey: ['myHistory'],
     queryFn: async () => {
-      try {
-        const res = await resultApi.getMyHistory();
-        return res.data?.data || res.data;
-      } catch {
-        return { records: DEFAULT_RECORDS, student: { cgpa: 8.45, totalCreditsEarned: 96 } };
-      }
+      const res = await resultApi.getMyHistory();
+      return res.data?.data || res.data;
     },
+    retry: 1,
   });
 
   const parsedRecords = useMemo(() => {
-    if (historyData?.records && Array.isArray(historyData.records) && historyData.records.length > 0) {
+    if (historyData?.records && Array.isArray(historyData.records)) {
       return historyData.records;
     }
-    if (Array.isArray(historyData) && historyData.length > 0) {
+    if (Array.isArray(historyData)) {
       return historyData;
     }
     return DEFAULT_RECORDS;
@@ -128,19 +125,72 @@ export function StudentHistoryPage() {
 
   const student = historyData?.student || { cgpa: 8.45, totalCreditsEarned: 96 };
 
+  // Authoritative single-source-of-truth arrear calculation
+  const { activeArrearsCount, clearedArrearsCount, passedCount } = useMemo(() => {
+    if (typeof historyData?.activeArrearsCount === 'number') {
+      return {
+        activeArrearsCount: historyData.activeArrearsCount,
+        clearedArrearsCount: historyData.clearedArrearsCount || 0,
+        passedCount: parsedRecords.filter((r: any) => r.isPassed || r.resultStatus === 'PASS').length,
+      };
+    }
+
+    // Client-side deduplication fallback for raw record arrays
+    const subjectMap = new Map<string, any[]>();
+    for (const rec of parsedRecords) {
+      const rawSub = rec.subjectId || rec.subject;
+      const code = (typeof rawSub === 'object' ? rawSub?.code : rec.subjectCode) || rec._id;
+      if (!subjectMap.has(code)) subjectMap.set(code, []);
+      subjectMap.get(code)!.push(rec);
+    }
+
+    let activeCount = 0;
+    let clearedCount = 0;
+    let distinctPassed = 0;
+
+    for (const [, attempts] of subjectMap) {
+      attempts.sort((a, b) => Number(a.attemptNumber || 1) - Number(b.attemptNumber || 1));
+      const hasFailure = attempts.some(
+        (a) => (!a.isPassed && a.isPassed !== undefined) || a.resultStatus === 'FAIL' || a.resultStatus === 'ABSENT'
+      );
+      const latest = attempts[attempts.length - 1];
+      const isLatestPassed = latest.isPassed || latest.resultStatus === 'PASS';
+
+      if (isLatestPassed) distinctPassed++;
+
+      if (hasFailure) {
+        if (isLatestPassed) {
+          clearedCount++;
+        } else {
+          activeCount++;
+        }
+      }
+    }
+
+    return {
+      activeArrearsCount: activeCount,
+      clearedArrearsCount: clearedCount,
+      passedCount: distinctPassed,
+    };
+  }, [historyData, parsedRecords]);
+
+  const arrearCount = activeArrearsCount;
+
   // Filter records
   const filteredRecords = useMemo(() => {
     return parsedRecords.filter((rec: any) => {
-      const semNumber = typeof rec.semester === 'object' ? rec.semester?.number : rec.semesterNumber;
-      const semId = typeof rec.semester === 'object' ? rec.semester?._id : rec.semester;
+      const rawSem = rec.semesterId || rec.semester;
+      const semNumber = typeof rawSem === 'object' ? rawSem?.number || rawSem?.semesterNumber : rec.semesterNumber;
+      const semId = typeof rawSem === 'object' ? rawSem?._id : rec.semester;
 
       const semMatch =
         selectedSemester === 'ALL' ||
         semId === selectedSemester ||
         String(semNumber) === selectedSemester;
 
-      const subName = (typeof rec.subject === 'object' ? rec.subject?.name : '') || '';
-      const subCode = (typeof rec.subject === 'object' ? rec.subject?.code : '') || '';
+      const rawSub = rec.subjectId || rec.subject;
+      const subName = (typeof rawSub === 'object' ? rawSub?.name : rec.subjectName) || '';
+      const subCode = (typeof rawSub === 'object' ? rawSub?.code : rec.subjectCode) || '';
 
       const queryMatch =
         !searchQuery ||
@@ -153,10 +203,10 @@ export function StudentHistoryPage() {
 
   const totalCredits = parsedRecords
     .filter((r: any) => r.isPassed || r.resultStatus === 'PASS')
-    .reduce((sum: number, r: any) => sum + (typeof r.subject === 'object' ? r.subject.credits : r.credits || 0), 0);
-
-  const passedCount = parsedRecords.filter((r: any) => r.isPassed || r.resultStatus === 'PASS').length;
-  const arrearCount = parsedRecords.filter((r: any) => (!r.isPassed && r.isPassed !== undefined) || r.resultStatus === 'FAIL').length;
+    .reduce((sum: number, r: any) => {
+      const rawSub = r.subjectId || r.subject;
+      return sum + (typeof rawSub === 'object' ? rawSub?.credits : r.credits || 0);
+    }, 0);
 
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
 
@@ -211,6 +261,24 @@ export function StudentHistoryPage() {
           </button>
         </div>
       </div>
+
+      {/* API Failure Alert Banner */}
+      {isError && (
+        <div className="p-4 rounded-2xl bg-rose-950/40 border border-rose-800/60 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-rose-200 text-sm">
+          <div className="flex items-center gap-2.5">
+            <AlertCircle className="w-5 h-5 text-rose-400 shrink-0" />
+            <span>
+              Unable to load real-time examination history from server. Showing cached record.
+            </span>
+          </div>
+          <button
+            onClick={() => refetch()}
+            className="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-semibold text-xs transition-all whitespace-nowrap"
+          >
+            Retry Connection
+          </button>
+        </div>
+      )}
 
       {/* Overview Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

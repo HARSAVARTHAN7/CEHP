@@ -140,22 +140,66 @@ export interface Notification {
   createdAt: string;
 }
 
+export interface ArrearAttemptDetail {
+  attemptNumber: number;
+  semesterNumber: number;
+  academicYear?: string;
+  examinationName?: string;
+  internalMarks: number;
+  externalMarks: number;
+  totalMarks: number;
+  maximumMarks: number;
+  grade: string;
+  gradePoint: number;
+  resultStatus: string;
+  isArrear: boolean;
+  publishedAt?: string;
+}
+
+export interface ArrearSubjectItem {
+  id?: string;
+  _id?: string;
+  subjectId: string | Subject;
+  subjectCode: string;
+  subjectName: string;
+  credits: number;
+  semesterNumber: number;
+  totalAttempts: number;
+  latestAttemptNumber: number;
+  latestInternalMarks: number;
+  latestExternalMarks: number;
+  latestTotalMarks: number;
+  latestMaximumMarks: number;
+  requiredMarks: number;
+  latestGrade: string;
+  latestGradePoint: number;
+  latestResultStatus: string;
+  isCleared: boolean;
+  clearanceSemester?: number;
+  clearanceExamination?: string;
+  nextExamSession?: string;
+  attempts?: ArrearAttemptDetail[];
+}
+
 export interface StudentAnalytics {
   cgpa: number;
   latestSGPA: number;
   totalSubjectsPassed: number;
   activeArrearsCount: number;
-  activeArrears: {
-    subjectId: string | Subject;
-    grade: string;
-    totalMarks: number;
-    attemptNumber: number;
-  }[];
+  clearedArrearsCount?: number;
+  totalHistoricalArrearsCount?: number;
+  totalArrearAttempts?: number;
+  totalPendingCredits?: number;
+  totalClearedCredits?: number;
+  activeArrears: ArrearSubjectItem[] | any[];
+  clearedArrears?: ArrearSubjectItem[] | any[];
+  historicalArrears?: ArrearSubjectItem[] | any[];
   semesterSGPAs: { semesterNumber: number; academicYear: string; sgpa: number; credits: number }[];
   currentSemester: number;
   registrationNumber: string;
   batch: string;
 }
+
 
 export interface PaginatedResponse<T> {
   success: boolean;

@@ -12,6 +12,7 @@ import {
   explainSGPACalculation,
   compareSemesters,
   getDefaultGradeThresholds,
+  calculateStudentArrears,
 } from '../services/academicCalculation';
 import axios from 'axios';
 import { config } from '../config/env';
@@ -234,7 +235,8 @@ export async function academicChat(req: AuthRequest, res: Response, next: NextFu
         gradeThresholds: getDefaultGradeThresholds(),
       } as any;
 
-      failedResults = results.filter((r) => r.resultStatus === 'FAIL');
+      const arrearsSummary = calculateStudentArrears(results as any, fakeRule);
+      failedResults = arrearsSummary.activeArrears;
       totalPassed = results.filter((r) => r.resultStatus === 'PASS').length;
 
       const semMap = new Map<string, typeof results>();
@@ -368,7 +370,7 @@ export async function academicChat(req: AuthRequest, res: Response, next: NextFu
       if (failedResults.length > 0) {
         response = `### Active Arrear Audit\n\n` +
                    `You currently have **${failedResults.length} active backlog(s)**:\n` +
-                   failedResults.map((r) => `- **${(r.subjectId as any)?.code || 'SUB'}**: ${(r.subjectId as any)?.name || 'Course'} (Total: ${r.totalMarks}/${r.maximumMarks || 100})`).join('\n') +
+                   failedResults.map((r: any) => `- **${r.subjectCode || (r.subjectId as any)?.code || 'SUB'}**: ${r.subjectName || (r.subjectId as any)?.name || 'Course'} (Attempts: ${r.totalAttempts || 1}, Last Score: ${r.latestTotalMarks ?? r.totalMarks}/${r.latestMaximumMarks || r.maximumMarks || 100})`).join('\n') +
                    `\n\n**Next Steps:** Register for the upcoming supplementary cycle and consult faculty for remediation.`;
       } else {
         response = `### Arrear Audit: Clear\n\n` +

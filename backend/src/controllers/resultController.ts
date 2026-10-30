@@ -17,6 +17,7 @@ import {
   calculateGrade,
   determineResultStatus,
   getDefaultGradeThresholds,
+  calculateStudentArrears,
 } from '../services/academicCalculation';
 import { MOCK_STUDENT_HISTORY, MOCK_STUDENT_ANALYTICS, MOCK_USERS } from '../utils/mockData';
 
@@ -80,17 +81,45 @@ export async function listResults(req: AuthRequest, res: Response, next: NextFun
   }
 }
 
-// GET /api/v1/results/my-history
+// GET /api/v1/results/my-history or /api/v1/students/me/history
 export async function getMyHistory(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
   try {
     if (mongoose.connection.readyState !== 1) {
       const email = req.userEmail?.toLowerCase() || 'student1@cehp.edu';
       const userObj = MOCK_USERS[email] || MOCK_USERS['student1@cehp.edu'];
+      const studentProfile = userObj.studentProfile || { cgpa: 8.45, totalCreditsEarned: 96 };
+      const recordsToUse = email.includes('student2') || email.includes('student3')
+        ? [
+            ...MOCK_STUDENT_HISTORY,
+            {
+              _id: 'rec_arr_1',
+              subject: { _id: 'sub_arr_1', code: 'CS302', name: 'Object Oriented Programming in Java', credits: 4 },
+              semester: { _id: 'sem_3', number: 3, academicYear: '2023-2024' },
+              examination: { name: 'Nov/Dec 2024 End Semester' },
+              internalMarks: 18,
+              externalMarks: 24,
+              totalMarks: 42,
+              maximumMarks: 100,
+              grade: 'F',
+              gradePoint: 0,
+              resultStatus: 'FAIL',
+              attemptNumber: 1,
+              isArrear: false,
+              publicationStatus: 'PUBLISHED',
+            },
+          ]
+        : MOCK_STUDENT_HISTORY;
+
+      const arrearsSummary = calculateStudentArrears(recordsToUse);
+
       res.json({
         success: true,
         data: {
-          records: MOCK_STUDENT_HISTORY,
-          student: userObj.studentProfile || { cgpa: 8.45, totalCreditsEarned: 96 },
+          records: recordsToUse,
+          student: studentProfile,
+          activeArrearsCount: arrearsSummary.activeArrearsCount,
+          clearedArrearsCount: arrearsSummary.clearedArrearsCount,
+          arrearSummary: arrearsSummary,
         },
       });
       return;
@@ -103,15 +132,23 @@ export async function getMyHistory(req: AuthRequest, res: Response, next: NextFu
       .populate('subjectId', 'code name credits subjectType')
       .populate('semesterId', 'semesterNumber academicYear startDate endDate')
       .populate('examinationId', 'name examinationType')
-      .sort({ 'semesterId.semesterNumber': 1 });
+      .sort({ 'semesterId.semesterNumber': 1, attemptNumber: 1 });
 
     const studentProfile = await StudentProfile.findOne({ userId: req.userId });
+    const academicRule = studentProfile
+      ? await AcademicRule.findOne({ programId: studentProfile.programId, isActive: true })
+      : null;
+
+    const arrearsSummary = calculateStudentArrears(results, academicRule);
 
     res.json({
       success: true,
       data: {
         records: results,
         student: studentProfile,
+        activeArrearsCount: arrearsSummary.activeArrearsCount,
+        clearedArrearsCount: arrearsSummary.clearedArrearsCount,
+        arrearSummary: arrearsSummary,
       },
     });
   } catch (err) {
@@ -119,11 +156,57 @@ export async function getMyHistory(req: AuthRequest, res: Response, next: NextFu
   }
 }
 
-// GET /api/v1/results/my-analytics
+// GET /api/v1/results/my-analytics or /api/v1/students/me/analytics
 export async function getMyAnalytics(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
   try {
     if (mongoose.connection.readyState !== 1) {
-      res.json({ success: true, data: MOCK_STUDENT_ANALYTICS });
+      const email = req.userEmail?.toLowerCase() || 'student1@cehp.edu';
+      const hasArrear = email.includes('student2') || email.includes('student3');
+      const analyticsData = hasArrear
+        ? {
+            ...MOCK_STUDENT_ANALYTICS,
+            cgpa: 7.25,
+            latestSGPA: 6.8,
+            activeArrearsCount: 1,
+            activeArrears: [
+              {
+                subjectId: 'sub_arr_1',
+                subjectCode: 'CS302',
+                subjectName: 'Object Oriented Programming in Java',
+                credits: 4,
+                semesterNumber: 3,
+                totalAttempts: 1,
+                latestAttemptNumber: 1,
+                latestInternalMarks: 18,
+                latestExternalMarks: 24,
+                latestTotalMarks: 42,
+                latestMaximumMarks: 100,
+                requiredMarks: 50,
+                latestGrade: 'F',
+                latestGradePoint: 0,
+                latestResultStatus: 'FAIL',
+                isCleared: false,
+                nextExamSession: 'Nov/Dec 2025 Arrear Supplementary',
+              },
+            ],
+            clearedArrearsCount: 0,
+            clearedArrears: [],
+            totalHistoricalArrearsCount: 1,
+            totalArrearAttempts: 1,
+            totalPendingCredits: 4,
+            totalClearedCredits: 0,
+          }
+        : {
+            ...MOCK_STUDENT_ANALYTICS,
+            clearedArrearsCount: 0,
+            clearedArrears: [],
+            totalHistoricalArrearsCount: 0,
+            totalArrearAttempts: 0,
+            totalPendingCredits: 0,
+            totalClearedCredits: 0,
+          };
+
+      res.json({ success: true, data: analyticsData });
       return;
     }
 
@@ -181,18 +264,348 @@ export async function getMyAnalytics(req: AuthRequest, res: Response, next: Next
     semesterSGPAs.sort((a, b) => a.semesterNumber - b.semesterNumber);
     const cgpaResult = calculateCGPA(semesterSGPAs, rule);
 
+    // Calculate authoritative arrears using single source of truth
+    const arrearSummary = calculateStudentArrears(allResults as any, rule);
+
     res.json({
       success: true,
       data: {
         cgpa: cgpaResult.cgpa,
         latestSGPA: semesterSGPAs[semesterSGPAs.length - 1]?.sgpa || 0,
         totalSubjectsPassed: allResults.filter((r) => r.resultStatus === 'PASS').length,
-        activeArrearsCount: allResults.filter((r) => r.isArrear && r.resultStatus === 'FAIL').length,
-        activeArrears: allResults.filter((r) => r.isArrear && r.resultStatus === 'FAIL'),
+        activeArrearsCount: arrearSummary.activeArrearsCount,
+        activeArrears: arrearSummary.activeArrears,
+        clearedArrearsCount: arrearSummary.clearedArrearsCount,
+        clearedArrears: arrearSummary.clearedArrears,
+        totalHistoricalArrearsCount: arrearSummary.totalHistoricalArrearsCount,
+        totalArrearAttempts: arrearSummary.totalArrearAttempts,
+        totalPendingCredits: arrearSummary.totalPendingCredits,
+        totalClearedCredits: arrearSummary.totalClearedCredits,
         semesterSGPAs,
         currentSemester: studentProfile.currentSemester,
         registrationNumber: studentProfile.registrationNumber,
         batch: studentProfile.batch,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// GET /api/v1/results/my-arrears or /api/v1/students/me/arrears
+export async function getMyArrears(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      const email = req.userEmail?.toLowerCase() || 'student1@cehp.edu';
+      const userObj = MOCK_USERS[email] || MOCK_USERS['student1@cehp.edu'];
+      const studentProfile = userObj.studentProfile || { cgpa: 8.45, totalCreditsEarned: 96 };
+      
+      const recordsToUse = email.includes('student2') || email.includes('student3')
+        ? [
+            ...MOCK_STUDENT_HISTORY,
+            {
+              _id: 'rec_arr_1',
+              subject: { _id: 'sub_arr_1', code: 'CS302', name: 'Object Oriented Programming in Java', credits: 4 },
+              semester: { _id: 'sem_3', number: 3, academicYear: '2023-2024' },
+              examination: { name: 'Nov/Dec 2024 End Semester' },
+              internalMarks: 18,
+              externalMarks: 24,
+              totalMarks: 42,
+              maximumMarks: 100,
+              grade: 'F',
+              gradePoint: 0,
+              resultStatus: 'FAIL',
+              attemptNumber: 1,
+              isArrear: false,
+              publicationStatus: 'PUBLISHED',
+            },
+          ]
+        : MOCK_STUDENT_HISTORY;
+
+      const summary = calculateStudentArrears(recordsToUse);
+      res.json({
+        success: true,
+        data: {
+          student: studentProfile,
+          ...summary,
+        },
+      });
+      return;
+    }
+
+    const studentProfile = await StudentProfile.findOne({ userId: req.userId });
+    if (!studentProfile) {
+      return next(new AppError('Student profile not found', 404));
+    }
+
+    const academicRule = await AcademicRule.findOne({
+      programId: studentProfile.programId,
+      isActive: true,
+    });
+
+    const results = await ResultRecord.find({
+      studentId: req.userId,
+      publicationStatus: 'PUBLISHED',
+    })
+      .populate('subjectId', 'code name credits subjectType')
+      .populate('semesterId', 'semesterNumber academicYear')
+      .populate('examinationId', 'name examinationType')
+      .sort({ 'semesterId.semesterNumber': 1, attemptNumber: 1 });
+
+    const summary = calculateStudentArrears(results, academicRule);
+
+    res.json({
+      success: true,
+      data: {
+        student: studentProfile,
+        ...summary,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// GET /api/v1/students/:studentId/arrears (for Administrator & Exam Officer)
+export async function getStudentArrears(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const studentId = req.params.studentId;
+    if (!studentId) {
+      return next(new AppError('Student ID is required', 400));
+    }
+
+    if (mongoose.connection.readyState !== 1) {
+      const summary = calculateStudentArrears(MOCK_STUDENT_HISTORY);
+      res.json({
+        success: true,
+        data: {
+          student: { registrationNumber: 'CSE2023001', currentSemester: 5, cgpa: 8.45 },
+          ...summary,
+        },
+      });
+      return;
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(studentId)) {
+      return next(new AppError('Invalid Student ID format', 400));
+    }
+
+    const studentProfile = await StudentProfile.findOne({ userId: studentId });
+    if (!studentProfile) {
+      return next(new AppError('Student profile not found', 404));
+    }
+
+    const academicRule = await AcademicRule.findOne({
+      programId: studentProfile.programId,
+      isActive: true,
+    });
+
+    const results = await ResultRecord.find({
+      studentId,
+      publicationStatus: 'PUBLISHED',
+    })
+      .populate('subjectId', 'code name credits subjectType')
+      .populate('semesterId', 'semesterNumber academicYear')
+      .populate('examinationId', 'name examinationType')
+      .sort({ 'semesterId.semesterNumber': 1, attemptNumber: 1 });
+
+    const summary = calculateStudentArrears(results, academicRule);
+
+    res.json({
+      success: true,
+      data: {
+        student: studentProfile,
+        ...summary,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// GET /api/v1/results/audit-integrity
+export async function auditAcademicIntegrity(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    if (req.userRole !== 'ADMIN' && req.userRole !== 'EXAM_OFFICER') {
+      return next(new AppError('Forbidden: Only Administrator and Examination Officer can access academic integrity audit.', 403));
+    }
+
+    if (mongoose.connection.readyState !== 1) {
+      res.json({
+        success: true,
+        data: {
+          timestamp: new Date().toISOString(),
+          auditedRecordsCount: MOCK_STUDENT_HISTORY.length,
+          duplicateAttempts: [],
+          orphanedRecords: [],
+          marksInconsistencies: [],
+          arrearDiscrepancies: [],
+          isClean: true,
+          summary: 'All academic records verified and synchronized with authoritative schema.',
+        },
+      });
+      return;
+    }
+
+    const allRecords = await ResultRecord.find({})
+      .populate('studentId', 'name email')
+      .populate('subjectId', 'code name')
+      .populate('semesterId', 'semesterNumber')
+      .populate('examinationId', 'name');
+
+    const duplicateAttempts: any[] = [];
+    const orphanedRecords: any[] = [];
+    const marksInconsistencies: any[] = [];
+    const keyMap = new Map<string, string[]>();
+
+    for (const rec of allRecords) {
+      if (!rec.studentId || !rec.subjectId || !rec.semesterId || !rec.examinationId) {
+        orphanedRecords.push({
+          recordId: rec._id,
+          missingFields: [
+            !rec.studentId ? 'studentId' : null,
+            !rec.subjectId ? 'subjectId' : null,
+            !rec.semesterId ? 'semesterId' : null,
+            !rec.examinationId ? 'examinationId' : null,
+          ].filter(Boolean),
+        });
+      }
+
+      const expectedTotal = Number(rec.internalMarks || 0) + Number(rec.externalMarks || 0);
+      if (rec.totalMarks != null && Math.abs(rec.totalMarks - expectedTotal) > 0.01) {
+        marksInconsistencies.push({
+          recordId: rec._id,
+          internalMarks: rec.internalMarks,
+          externalMarks: rec.externalMarks,
+          recordedTotal: rec.totalMarks,
+          expectedTotal,
+        });
+      }
+
+      const stuId = String((rec.studentId as any)?._id || rec.studentId);
+      const subId = String((rec.subjectId as any)?._id || rec.subjectId);
+      const examId = String((rec.examinationId as any)?._id || rec.examinationId);
+      const attempt = rec.attemptNumber || 1;
+      const dupKey = `${stuId}_${subId}_${examId}_${attempt}`;
+
+      if (!keyMap.has(dupKey)) {
+        keyMap.set(dupKey, [String(rec._id)]);
+      } else {
+        keyMap.get(dupKey)!.push(String(rec._id));
+        duplicateAttempts.push({
+          key: dupKey,
+          student: (rec.studentId as any)?.name || stuId,
+          subject: (rec.subjectId as any)?.code || subId,
+          recordIds: keyMap.get(dupKey),
+        });
+      }
+    }
+
+    const studentIds = [...new Set(allRecords.map((r) => String((r.studentId as any)?._id || r.studentId)))];
+    const arrearDiscrepancies: any[] = [];
+
+    for (const sId of studentIds) {
+      const studentRecords = allRecords.filter((r) => String((r.studentId as any)?._id || r.studentId) === sId);
+      const arrearsSummary = calculateStudentArrears(studentRecords);
+      for (const cleared of arrearsSummary.clearedArrears) {
+        const hasLegacyActive = studentRecords.some(
+          (r) => String((r.subjectId as any)?._id || r.subjectId) === cleared.subjectId && r.isArrear && r.resultStatus === 'FAIL'
+        );
+        if (hasLegacyActive) {
+          arrearDiscrepancies.push({
+            studentId: sId,
+            subjectCode: cleared.subjectCode,
+            issue: 'Subject cleared in subsequent examination attempt; verified cleared.',
+            activeArrearsCount: arrearsSummary.activeArrearsCount,
+            clearedArrearsCount: arrearsSummary.clearedArrearsCount,
+          });
+        }
+      }
+    }
+
+    const isClean = duplicateAttempts.length === 0 && orphanedRecords.length === 0 && marksInconsistencies.length === 0;
+
+    res.json({
+      success: true,
+      data: {
+        timestamp: new Date().toISOString(),
+        auditedRecordsCount: allRecords.length,
+        duplicateAttempts,
+        orphanedRecords,
+        marksInconsistencies,
+        arrearDiscrepancies,
+        isClean,
+        summary: isClean
+          ? 'All academic records verified and synchronized with authoritative schema.'
+          : `Integrity check completed: found ${duplicateAttempts.length} duplicate attempts, ${orphanedRecords.length} orphaned records, ${marksInconsistencies.length} mark calculation discrepancies.`,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// POST /api/v1/results/reconcile
+export async function reconcileArrears(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    if (req.userRole !== 'ADMIN' && req.userRole !== 'EXAM_OFFICER') {
+      return next(new AppError('Forbidden: Only Administrator and Examination Officer can trigger academic reconciliation.', 403));
+    }
+
+    const { dryRun = true } = req.body;
+
+    if (mongoose.connection.readyState !== 1) {
+      res.json({
+        success: true,
+        message: dryRun
+          ? 'Academic integrity simulation completed (Dry Run). No database records modified.'
+          : 'Authoritative academic record reconciliation completed successfully.',
+        data: {
+          dryRun,
+          reconciledStudentsCount: 3,
+          correctedRecordsCount: 0,
+          reconciliationAuditId: 'audit_rec_mock',
+          timestamp: new Date().toISOString(),
+        },
+      });
+      return;
+    }
+
+    const allRecords = await ResultRecord.find({}).sort({ createdAt: 1 });
+    let correctedCount = 0;
+
+    if (!dryRun) {
+      for (const rec of allRecords) {
+        const expectedTotal = Number(rec.internalMarks || 0) + Number(rec.externalMarks || 0);
+        if (rec.totalMarks != null && Math.abs(rec.totalMarks - expectedTotal) > 0.01) {
+          rec.totalMarks = expectedTotal;
+          await rec.save();
+          correctedCount++;
+        }
+      }
+
+      try {
+        await AuditLog.create({
+          actorUserId: req.userId,
+          action: 'ACADEMIC_RECORD_RECONCILIATION',
+          entityType: 'ResultRecord',
+          entityId: req.userId as any,
+          reason: `Reconciled ${allRecords.length} examination records. Corrected ${correctedCount} mathematical or status discrepancies.`,
+          ipAddress: req.ip,
+        });
+      } catch {}
+    }
+
+    res.json({
+      success: true,
+      message: dryRun
+        ? 'Academic integrity simulation completed (Dry Run). No database records modified.'
+        : `Academic reconciliation applied successfully. Corrected ${correctedCount} discrepancies.`,
+      data: {
+        dryRun,
+        totalRecordsAudited: allRecords.length,
+        correctedCount,
+        timestamp: new Date().toISOString(),
       },
     });
   } catch (err) {

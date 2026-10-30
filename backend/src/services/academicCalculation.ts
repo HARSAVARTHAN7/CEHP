@@ -417,3 +417,274 @@ export function compareSemesters(
   };
 }
 
+export interface ArrearAttemptDetail {
+  attemptNumber: number;
+  semesterNumber: number;
+  academicYear?: string;
+  examinationName?: string;
+  internalMarks: number;
+  externalMarks: number;
+  totalMarks: number;
+  maximumMarks: number;
+  grade: string;
+  gradePoint: number;
+  resultStatus: string;
+  isArrear: boolean;
+  publicationStatus?: string;
+  publishedAt?: Date | string;
+}
+
+export interface ArrearSubjectItem {
+  subjectId: string;
+  subjectCode: string;
+  subjectName: string;
+  credits: number;
+  semesterNumber: number;
+  totalAttempts: number;
+  latestAttemptNumber: number;
+  latestInternalMarks: number;
+  latestExternalMarks: number;
+  latestTotalMarks: number;
+  latestMaximumMarks: number;
+  requiredMarks: number;
+  latestGrade: string;
+  latestGradePoint: number;
+  latestResultStatus: string;
+  isCleared: boolean;
+  clearanceSemester?: number;
+  clearanceExamination?: string;
+  nextExamSession?: string;
+  attempts: ArrearAttemptDetail[];
+}
+
+export interface StudentArrearsSummary {
+  activeArrearsCount: number;
+  clearedArrearsCount: number;
+  totalHistoricalArrearsCount: number;
+  totalArrearAttempts: number;
+  totalPendingCredits: number;
+  totalClearedCredits: number;
+  activeArrears: ArrearSubjectItem[];
+  clearedArrears: ArrearSubjectItem[];
+  historicalArrears: ArrearSubjectItem[];
+}
+
+/**
+ * Authoritative Central Arrear Calculation Engine.
+ * Follows strict academic governance rules:
+ * 1. Only confirmed, published examination results are authoritative.
+ * 2. An active arrear is a distinct subject whose latest published attempt is unsuccessful (FAIL or ABSENT).
+ * 3. A cleared arrear is a distinct subject with at least one historical unsuccessful attempt that has subsequently been passed in a published attempt.
+ * 4. Multiple failed attempts at the same subject never inflate the distinct active arrear count (counts as 1).
+ * 5. Withheld/Unpublished results do not prematurely clear an arrear or create a premature failure.
+ */
+export function calculateStudentArrears(
+  results: any[],
+  rule?: IAcademicRule | null
+): StudentArrearsSummary {
+  if (!Array.isArray(results) || results.length === 0) {
+    return {
+      activeArrearsCount: 0,
+      clearedArrearsCount: 0,
+      totalHistoricalArrearsCount: 0,
+      totalArrearAttempts: 0,
+      totalPendingCredits: 0,
+      totalClearedCredits: 0,
+      activeArrears: [],
+      clearedArrears: [],
+      historicalArrears: [],
+    };
+  }
+
+  // 1. Filter authoritative published results only
+  const publishedRecords = results.filter((r) => {
+    const pubStatus = r.publicationStatus || r.status;
+    // If publicationStatus is explicitly defined, require PUBLISHED
+    if (pubStatus !== undefined && pubStatus !== null) {
+      return String(pubStatus).toUpperCase() === 'PUBLISHED';
+    }
+    // Fallback if legacy record has no publicationStatus field
+    return true;
+  });
+
+  // 2. Group records by distinct subject
+  const subjectGroups = new Map<string, any[]>();
+  for (const record of publishedRecords) {
+    const rawSub = record.subjectId || record.subject;
+    const subCode = typeof rawSub === 'object' && rawSub !== null
+      ? rawSub.code
+      : record.subjectCode || '';
+    const subId = typeof rawSub === 'object' && rawSub !== null
+      ? String(rawSub._id || subCode)
+      : String(rawSub || record.subjectCode || 'UNKNOWN');
+    const groupKey = (subCode || subId).trim().toUpperCase();
+
+    if (!subjectGroups.has(groupKey)) {
+      subjectGroups.set(groupKey, []);
+    }
+    subjectGroups.get(groupKey)!.push(record);
+  }
+
+  const activeArrears: ArrearSubjectItem[] = [];
+  const clearedArrears: ArrearSubjectItem[] = [];
+  const historicalArrears: ArrearSubjectItem[] = [];
+  let totalArrearAttempts = 0;
+
+  const minPassPct = rule?.minPassPercentage ?? 50;
+
+  for (const [, records] of subjectGroups) {
+    // Sort chronological: by semester number ascending, then attempt number ascending
+    records.sort((a, b) => {
+      const semA = Number(
+        (typeof a.semesterId === 'object' ? a.semesterId?.semesterNumber : a.semester?.number) ??
+        a.semesterNumber ??
+        1
+      );
+      const semB = Number(
+        (typeof b.semesterId === 'object' ? b.semesterId?.semesterNumber : b.semester?.number) ??
+        b.semesterNumber ??
+        1
+      );
+      if (semA !== semB) return semA - semB;
+      const attA = Number(a.attemptNumber ?? 1);
+      const attB = Number(b.attemptNumber ?? 1);
+      return attA - attB;
+    });
+
+    // Check if the student ever had an unsuccessful attempt in this subject
+    const hasUnsuccessfulAttempt = records.some((r) => {
+      const status = String(r.resultStatus || '').toUpperCase();
+      const isPassed = r.isPassed;
+      return (
+        status === 'FAIL' ||
+        status === 'ABSENT' ||
+        (isPassed === false && status !== 'PASS')
+      );
+    });
+
+    if (!hasUnsuccessfulAttempt) {
+      // Clean pass on first attempt; not an arrear subject
+      continue;
+    }
+
+    // Build attempt history
+    const attemptsList: ArrearAttemptDetail[] = records.map((r) => {
+      const semObj = r.semesterId || r.semester;
+      const examObj = r.examinationId || r.examination;
+      return {
+        attemptNumber: Number(r.attemptNumber || 1),
+        semesterNumber: Number(
+          (typeof semObj === 'object' ? semObj?.semesterNumber : r.semester?.number) ??
+          r.semesterNumber ??
+          1
+        ),
+        academicYear: typeof semObj === 'object' ? semObj?.academicYear : r.academicYear,
+        examinationName: typeof examObj === 'object' ? examObj?.name || examObj?.title : r.examinationName,
+        internalMarks: Number(r.internalMarks ?? 0),
+        externalMarks: Number(r.externalMarks ?? 0),
+        totalMarks: Number(r.totalMarks ?? (Number(r.internalMarks || 0) + Number(r.externalMarks || 0))),
+        maximumMarks: Number(r.maximumMarks ?? 100),
+        grade: String(r.grade || 'F'),
+        gradePoint: Number(r.gradePoint ?? 0),
+        resultStatus: String(r.resultStatus || 'FAIL').toUpperCase(),
+        isArrear: Boolean(r.isArrear || (r.attemptNumber && r.attemptNumber > 1)),
+        publicationStatus: r.publicationStatus || r.status,
+        publishedAt: r.publishedAt,
+      };
+    });
+
+    totalArrearAttempts += attemptsList.length;
+
+    // The authoritative current status is governed by the latest published attempt
+    const latestRecord = records[records.length - 1];
+    const latestStatus = String(latestRecord.resultStatus || '').toUpperCase();
+    const isPassed = latestRecord.isPassed;
+    const isLatestPassed = latestStatus === 'PASS' || isPassed === true;
+
+    const rawSub = latestRecord.subjectId || latestRecord.subject;
+    const subjectCode = typeof rawSub === 'object' && rawSub !== null
+      ? rawSub.code || ''
+      : latestRecord.subjectCode || '';
+    const subjectName = typeof rawSub === 'object' && rawSub !== null
+      ? rawSub.name || 'Subject'
+      : latestRecord.subjectName || 'Subject';
+    const credits = Number(
+      (typeof rawSub === 'object' && rawSub !== null ? rawSub.credits : undefined) ??
+      latestRecord.credits ??
+      3
+    );
+    const subjectId = typeof rawSub === 'object' && rawSub !== null
+      ? String(rawSub._id || subjectCode)
+      : String(latestRecord.subjectId || subjectCode);
+
+    const initialSemObj = records[0].semesterId || records[0].semester;
+    const initialSemNumber = Number(
+      (typeof initialSemObj === 'object' ? initialSemObj?.semesterNumber : records[0].semester?.number) ??
+      records[0].semesterNumber ??
+      1
+    );
+
+    const maxMarks = Number(latestRecord.maximumMarks ?? 100);
+    const requiredMarks = Math.ceil((minPassPct / 100) * maxMarks);
+
+    const arrearItem: ArrearSubjectItem = {
+      subjectId,
+      subjectCode,
+      subjectName,
+      credits,
+      semesterNumber: initialSemNumber,
+      totalAttempts: records.length,
+      latestAttemptNumber: Number(latestRecord.attemptNumber || records.length),
+      latestInternalMarks: Number(latestRecord.internalMarks ?? 0),
+      latestExternalMarks: Number(latestRecord.externalMarks ?? 0),
+      latestTotalMarks: Number(latestRecord.totalMarks ?? 0),
+      latestMaximumMarks: maxMarks,
+      requiredMarks,
+      latestGrade: String(latestRecord.grade || 'F'),
+      latestGradePoint: Number(latestRecord.gradePoint ?? 0),
+      latestResultStatus: latestStatus,
+      isCleared: isLatestPassed,
+      nextExamSession: isLatestPassed ? undefined : 'Upcoming Supplementary Examination Cycle',
+      attempts: attemptsList,
+    };
+
+    if (isLatestPassed) {
+      const clearanceSemObj = latestRecord.semesterId || latestRecord.semester;
+      const clearanceExamObj = latestRecord.examinationId || latestRecord.examination;
+      arrearItem.clearanceSemester = Number(
+        (typeof clearanceSemObj === 'object' ? clearanceSemObj?.semesterNumber : latestRecord.semester?.number) ??
+        latestRecord.semesterNumber ??
+        initialSemNumber
+      );
+      arrearItem.clearanceExamination = typeof clearanceExamObj === 'object'
+        ? clearanceExamObj?.name || clearanceExamObj?.title
+        : latestRecord.examinationName;
+      clearedArrears.push(arrearItem);
+    } else {
+      activeArrears.push(arrearItem);
+    }
+
+    historicalArrears.push(arrearItem);
+  }
+
+  // Sort active arrears by original semester number ascending
+  activeArrears.sort((a, b) => a.semesterNumber - b.semesterNumber || a.subjectCode.localeCompare(b.subjectCode));
+  clearedArrears.sort((a, b) => a.semesterNumber - b.semesterNumber || a.subjectCode.localeCompare(b.subjectCode));
+  historicalArrears.sort((a, b) => a.semesterNumber - b.semesterNumber || a.subjectCode.localeCompare(b.subjectCode));
+
+  const totalPendingCredits = activeArrears.reduce((sum, a) => sum + a.credits, 0);
+  const totalClearedCredits = clearedArrears.reduce((sum, a) => sum + a.credits, 0);
+
+  return {
+    activeArrearsCount: activeArrears.length,
+    clearedArrearsCount: clearedArrears.length,
+    totalHistoricalArrearsCount: historicalArrears.length,
+    totalArrearAttempts,
+    totalPendingCredits,
+    totalClearedCredits,
+    activeArrears,
+    clearedArrears,
+    historicalArrears,
+  };
+}
+
