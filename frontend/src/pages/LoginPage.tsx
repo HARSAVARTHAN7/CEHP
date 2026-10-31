@@ -123,41 +123,57 @@ export default function LoginPage() {
 
   const checkHealth = useCallback(async () => {
     setIsCheckingHealth(true);
-    try {
-      let res: any;
+    const rawApiUrl = (import.meta as any).env?.VITE_API_URL || (import.meta as any).env?.VITE_API_BASE_URL || '';
+    const cleanBase = typeof rawApiUrl === 'string' ? rawApiUrl.replace(/\/+$/, '') : '';
+
+    const candidates = [
+      cleanBase ? `${cleanBase}/api/health` : null,
+      cleanBase ? `${cleanBase}/health` : null,
+      '/api/health',
+      '/health',
+      '/api/v1/health',
+      'http://localhost:5000/health',
+      'http://127.0.0.1:5000/api/health',
+    ].filter(Boolean) as string[];
+
+    // Remove duplicates while preserving priority
+    const endpoints = Array.from(new Set(candidates));
+
+    for (const url of endpoints) {
       try {
-        res = await axios.get('/api/health', { timeout: 3500 });
+        const res = await axios.get(url, { timeout: 8000 });
+        if (res.status === 200) {
+          setSystemHealth({
+            checked: true,
+            backendOnline: true,
+            dbStatus: res.data?.database || 'connected',
+          });
+          if (res.data?.database === 'connected' || res.data?.status === 'ok') {
+            setError((prev) => (
+              prev.includes('verify backend service') ||
+              prev.includes('Authentication server error') ||
+              prev.includes('Cannot connect') ||
+              prev.includes('Backend server is not running') ||
+              prev.includes('Database service is currently unreachable')
+                ? ''
+                : prev
+            ));
+          }
+          setIsCheckingHealth(false);
+          return true;
+        }
       } catch {
-        res = await axios.get('http://localhost:5000/health', { timeout: 3500 });
+        // Try next endpoint
       }
-      setSystemHealth({
-        checked: true,
-        backendOnline: true,
-        dbStatus: res.data?.database || 'connected',
-      });
-      // Clear stale connection or server unreachable errors when confirmed healthy
-      if (res.data?.database === 'connected' || res.data?.status === 'ok') {
-        setError((prev) => (
-          prev.includes('verify backend service') ||
-          prev.includes('Authentication server error') ||
-          prev.includes('Cannot connect') ||
-          prev.includes('Backend server is not running') ||
-          prev.includes('Database service is currently unreachable')
-            ? ''
-            : prev
-        ));
-      }
-      return true;
-    } catch {
-      setSystemHealth({
-        checked: true,
-        backendOnline: false,
-        dbStatus: 'disconnected',
-      });
-      return false;
-    } finally {
-      setIsCheckingHealth(false);
     }
+
+    setSystemHealth({
+      checked: true,
+      backendOnline: false,
+      dbStatus: 'disconnected',
+    });
+    setIsCheckingHealth(false);
+    return false;
   }, []);
 
   useEffect(() => {
