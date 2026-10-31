@@ -72,10 +72,17 @@ app.get('/health', healthCheckHandler);
 app.get('/api/health', healthCheckHandler);
 app.get('/api/v1/health', healthCheckHandler);
 
-// Serverless DB connection middleware for API routes (non-blocking trigger)
-app.use((_req, _res, next) => {
-  if (mongoose.connection.readyState === 0 && config.mongodbUri) {
-    connectDB(1).catch(() => {});
+// Serverless DB connection middleware for API routes (ensures DB is ready before queries execute)
+app.use(async (_req, _res, next) => {
+  if (mongoose.connection.readyState !== 1 && config.mongodbUri) {
+    try {
+      await Promise.race([
+        connectDB(1),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('DB connection wait timed out')), 3000)),
+      ]);
+    } catch (err) {
+      logger.warn('Non-fatal: DB connection wait in middleware:', (err as any)?.message || err);
+    }
   }
   next();
 });

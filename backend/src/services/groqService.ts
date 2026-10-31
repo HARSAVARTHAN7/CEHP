@@ -34,7 +34,7 @@ function getClient(): Groq {
 }
 
 export function getGroqModelName(): string {
-  return process.env.GROQ_MODEL || config.groq.model || 'llama-3.3-70b-versatile';
+  return process.env.GROQ_MODEL || config.groq.model || 'qwen/qwen3.8-27b';
 }
 
 export interface GroqTextOptions {
@@ -48,11 +48,11 @@ export interface GroqTextOptions {
  * Supported Groq candidate models in order of priority for seamless failover.
  */
 const CANDIDATE_GROQ_MODELS = [
+  'qwen/qwen3.8-27b',
+  'openai/gpt-oss-120b',
+  'openai/gpt-oss-20b',
   'llama-3.3-70b-versatile',
   'llama-3.1-8b-instant',
-  'mixtral-8x7b-32768',
-  'gemma2-9b-it',
-  'deepseek-r1-distill-llama-70b',
 ];
 
 async function withTimeout<T>(promise: Promise<T>, ms: number, errorMsg: string): Promise<T> {
@@ -73,7 +73,7 @@ export async function generateGroqText(
   const client = getClient();
   const configuredModel = getGroqModelName();
   const candidateModels = [configuredModel, ...CANDIDATE_GROQ_MODELS.filter((m) => m !== configuredModel)];
-  const timeoutMs = options.timeoutMs ?? 25000;
+  const timeoutMs = options.timeoutMs ?? 8000;
 
   const messages: Groq.Chat.ChatCompletionMessageParam[] = [];
   if (options.systemInstruction) {
@@ -121,7 +121,7 @@ export async function chatWithGroq(
   const client = getClient();
   const configuredModel = getGroqModelName();
   const candidateModels = [configuredModel, ...CANDIDATE_GROQ_MODELS.filter((m) => m !== configuredModel)];
-  const timeoutMs = options.timeoutMs ?? 25000;
+  const timeoutMs = options.timeoutMs ?? 8000;
 
   const groqMessages: Groq.Chat.ChatCompletionMessageParam[] = [];
   if (options.systemInstruction) {

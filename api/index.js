@@ -275537,7 +275537,7 @@ var envSchema = external_exports.object({
   FRONTEND_ORIGIN: external_exports.string().default("http://localhost:5173"),
   AI_SERVICE_URL: external_exports.string().default("http://localhost:8001"),
   GROQ_API_KEY: external_exports.string().optional(),
-  GROQ_MODEL: external_exports.string().default("llama-3.3-70b-versatile"),
+  GROQ_MODEL: external_exports.string().default("qwen/qwen3.8-27b"),
   LLM_PROVIDER: external_exports.string().optional(),
   LLM_API_KEY: external_exports.string().optional(),
   LLM_MODEL: external_exports.string().optional(),
@@ -275568,12 +275568,12 @@ var config = {
   aiServiceUrl: safeData.AI_SERVICE_URL,
   groq: {
     apiKey: safeData.GROQ_API_KEY || (safeData.LLM_PROVIDER === "groq" ? safeData.LLM_API_KEY : "") || "",
-    model: safeData.GROQ_MODEL || (safeData.LLM_PROVIDER === "groq" ? safeData.LLM_MODEL : "") || "llama-3.3-70b-versatile"
+    model: safeData.GROQ_MODEL || (safeData.LLM_PROVIDER === "groq" ? safeData.LLM_MODEL : "") || "qwen/qwen3.8-27b"
   },
   llm: {
     provider: safeData.LLM_PROVIDER || "groq",
     apiKey: safeData.GROQ_API_KEY || safeData.LLM_API_KEY || "",
-    model: safeData.GROQ_MODEL || safeData.LLM_MODEL || "llama-3.3-70b-versatile"
+    model: safeData.GROQ_MODEL || safeData.LLM_MODEL || "qwen/qwen3.8-27b"
   },
   bcryptRounds: parseInt(safeData.BCRYPT_ROUNDS, 10),
   maxUploadSizeMb: parseInt(safeData.MAX_UPLOAD_SIZE_MB, 10),
@@ -281545,14 +281545,14 @@ function getClient() {
   return groqInstance;
 }
 function getGroqModelName() {
-  return process.env.GROQ_MODEL || config.groq.model || "llama-3.3-70b-versatile";
+  return process.env.GROQ_MODEL || config.groq.model || "qwen/qwen3.8-27b";
 }
 var CANDIDATE_GROQ_MODELS = [
+  "qwen/qwen3.8-27b",
+  "openai/gpt-oss-120b",
+  "openai/gpt-oss-20b",
   "llama-3.3-70b-versatile",
-  "llama-3.1-8b-instant",
-  "mixtral-8x7b-32768",
-  "gemma2-9b-it",
-  "deepseek-r1-distill-llama-70b"
+  "llama-3.1-8b-instant"
 ];
 async function withTimeout(promise, ms, errorMsg) {
   let timer;
@@ -281565,7 +281565,7 @@ async function generateGroqText(prompt, options = {}) {
   const client = getClient();
   const configuredModel = getGroqModelName();
   const candidateModels = [configuredModel, ...CANDIDATE_GROQ_MODELS.filter((m) => m !== configuredModel)];
-  const timeoutMs = options.timeoutMs ?? 25e3;
+  const timeoutMs = options.timeoutMs ?? 8e3;
   const messages = [];
   if (options.systemInstruction) {
     messages.push({ role: "system", content: options.systemInstruction });
@@ -281601,7 +281601,7 @@ async function chatWithGroq(messages, options = {}) {
   const client = getClient();
   const configuredModel = getGroqModelName();
   const candidateModels = [configuredModel, ...CANDIDATE_GROQ_MODELS.filter((m) => m !== configuredModel)];
-  const timeoutMs = options.timeoutMs ?? 25e3;
+  const timeoutMs = options.timeoutMs ?? 8e3;
   const groqMessages = [];
   if (options.systemInstruction) {
     groqMessages.push({ role: "system", content: options.systemInstruction });
@@ -282683,10 +282683,16 @@ var healthCheckHandler = (_req, res) => {
 app.get("/health", healthCheckHandler);
 app.get("/api/health", healthCheckHandler);
 app.get("/api/v1/health", healthCheckHandler);
-app.use((_req, _res, next) => {
-  if (import_mongoose21.default.connection.readyState === 0 && config.mongodbUri) {
-    connectDB(1).catch(() => {
-    });
+app.use(async (_req, _res, next) => {
+  if (import_mongoose21.default.connection.readyState !== 1 && config.mongodbUri) {
+    try {
+      await Promise.race([
+        connectDB(1),
+        new Promise((_, reject) => setTimeout(() => reject(new Error("DB connection wait timed out")), 3e3))
+      ]);
+    } catch (err) {
+      logger.warn("Non-fatal: DB connection wait in middleware:", err?.message || err);
+    }
   }
   next();
 });
