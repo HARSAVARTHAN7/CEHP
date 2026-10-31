@@ -25,25 +25,24 @@ export function authenticate(req: AuthRequest, res: Response, next: NextFunction
       req.headers.authorization?.replace('Bearer ', '');
 
     if (!token || token === 'undefined' || token === 'null') {
-      if (process.env.NODE_ENV !== 'production') {
-        req.userId = '6acbc47d4a61e2c0ec376d57';
-        req.userRole = 'STUDENT';
-        req.userEmail = 'student1@cehp.edu';
-        return next();
-      }
       return next(new AppError('Authentication required', 401));
     }
 
-    // Support development / demo role session tokens seamlessly
-    if (token.startsWith('session_') || token.startsWith('demo_')) {
-      const roleStr = token.replace('session_', '').replace('demo_', '').toUpperCase();
-      const role = (
-        roleStr.includes('ADMIN') ? 'ADMIN' :
-        roleStr.includes('EXAM') ? 'EXAM_OFFICER' :
-        roleStr.includes('HOD') ? 'HOD' :
-        roleStr.includes('FAC') ? 'FACULTY' :
-        'STUDENT'
-      ) as UserRole;
+    // Support development / demo role session tokens seamlessly (e.g. session_student)
+    if (token.startsWith('session_')) {
+      const roleStr = token.replace('session_', '').toUpperCase().trim();
+      const role: UserRole | null = (
+        roleStr === 'ADMIN' ? 'ADMIN' :
+        roleStr === 'EXAM_OFFICER' || roleStr === 'EXAM' || roleStr === 'COE' ? 'EXAM_OFFICER' :
+        roleStr === 'HOD' ? 'HOD' :
+        roleStr === 'FACULTY' || roleStr === 'FAC' ? 'FACULTY' :
+        roleStr === 'STUDENT' ? 'STUDENT' :
+        null
+      );
+
+      if (!role) {
+        return next(new AppError('Invalid token', 401));
+      }
 
       const defaultIds: Record<string, { id: string; email: string }> = {
         STUDENT: { id: '6acbc47d4a61e2c0ec376d57', email: 'student1@cehp.edu' },

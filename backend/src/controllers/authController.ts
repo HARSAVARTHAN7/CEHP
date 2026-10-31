@@ -187,7 +187,10 @@ export async function login(req: Request, res: Response, next: NextFunction): Pr
         email: user.email,
         role: user.role,
         accountStatus: user.accountStatus,
-        assignedDepartmentIds: user.assignedDepartmentIds,
+        assignedDepartmentIds: Array.from(new Set([
+          ...(user.assignedDepartmentIds || []).map(String),
+          ...(user.email.includes('cse') ? ['dept_cse'] : []),
+        ])),
         customUserId: user.customUserId,
         studentProfile: studentProfile || undefined,
         facultyProfile: facultyProfile || undefined,

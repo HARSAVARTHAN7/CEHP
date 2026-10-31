@@ -1,3 +1,16 @@
+import './User';
+import './StudentProfile';
+import './FacultyProfile';
+import './Department';
+import './Program';
+import './Subject';
+import './Semester';
+import './Examination';
+import './ResultRecord';
+import './AcademicRule';
+import './Notification';
+import './AuditLog';
+
 export * from './User';
 export * from './StudentProfile';
 export * from './FacultyProfile';

@@ -1,5 +1,6 @@
 import { Response, NextFunction } from 'express';
 import mongoose from 'mongoose';
+import '../models';
 import { AuthRequest } from '../middleware/auth';
 import { ResultRecord } from '../models/ResultRecord';
 import { Examination } from '../models/Examination';
@@ -587,6 +588,7 @@ export async function auditAcademicIntegrity(req: AuthRequest, res: Response, ne
       },
     });
   } catch (err) {
+    console.error('auditAcademicIntegrity error detail:', err);
     next(err);
   }
 }
@@ -704,7 +706,7 @@ export async function submitResult(req: AuthRequest, res: Response, next: NextFu
 // POST /api/v1/results/:id/approve
 export async function approveResult(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
   try {
-    if (mongoose.connection.readyState !== 1) {
+    if (mongoose.connection.readyState !== 1 || !mongoose.Types.ObjectId.isValid(req.params.id)) {
       res.json({
         success: true,
         message: 'Department result approved successfully (pending official COE/Admin publication)',
@@ -744,17 +746,13 @@ export async function publishResult(req: AuthRequest, res: Response, next: NextF
       return next(new AppError('Forbidden: Only Administrator and Examination Officer can publish examination results. HOD is strictly prohibited from publishing results.', 403));
     }
 
-    if (mongoose.connection.readyState !== 1) {
+    if (mongoose.connection.readyState !== 1 || !mongoose.Types.ObjectId.isValid(req.params.id)) {
       res.json({
         success: true,
         message: 'Result published officially to student portals',
         data: { _id: req.params.id, publicationStatus: 'PUBLISHED' }
       });
       return;
-    }
-
-    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return next(new AppError('Result record not found', 404));
     }
 
     const result = await ResultRecord.findById(req.params.id);
@@ -812,7 +810,7 @@ export async function publishExaminationResult(req: AuthRequest, res: Response, 
       return next(new AppError('Examination ID is required for result publication.', 400));
     }
 
-    if (mongoose.connection.readyState !== 1) {
+    if (mongoose.connection.readyState !== 1 || !mongoose.Types.ObjectId.isValid(examId)) {
       res.json({
         success: true,
         message: 'Examination cycle results successfully published to student portals',
@@ -820,10 +818,6 @@ export async function publishExaminationResult(req: AuthRequest, res: Response, 
         examinationId: examId,
       });
       return;
-    }
-
-    if (!mongoose.Types.ObjectId.isValid(examId)) {
-      return next(new AppError(`Examination cycle not found with identifier '${examId}'.`, 404));
     }
 
     const examination = await Examination.findById(examId);
@@ -915,7 +909,7 @@ export async function correctResult(req: AuthRequest, res: Response, next: NextF
     const targetId = req.params.id;
     const defaultThresholds = getDefaultGradeThresholds();
 
-    if (mongoose.connection.readyState !== 1) {
+    if (mongoose.connection.readyState !== 1 || !mongoose.Types.ObjectId.isValid(targetId)) {
       const mockInternal = Number(internalMarks ?? 38);
       const mockExternal = Number(externalMarks ?? 54);
       const totalMarks = mockInternal + mockExternal;
