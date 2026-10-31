@@ -281549,8 +281549,10 @@ function getGroqModelName() {
 }
 var CANDIDATE_GROQ_MODELS = [
   "qwen/qwen3.8-27b",
-  "openai/gpt-oss-120b",
-  "openai/gpt-oss-20b"
+  "llama-3.3-70b-versatile",
+  "llama-3.1-8b-instant",
+  "gemma2-9b-it",
+  "mixtral-8x7b-32768"
 ];
 async function withTimeout(promise, ms, errorMsg) {
   let timer;
@@ -281563,7 +281565,7 @@ async function generateGroqText(prompt, options = {}) {
   const client = getClient();
   const configuredModel = getGroqModelName();
   const candidateModels = [configuredModel, ...CANDIDATE_GROQ_MODELS.filter((m) => m !== configuredModel)];
-  const timeoutMs = options.timeoutMs ?? 1e4;
+  const timeoutMs = options.timeoutMs ?? 25e3;
   const messages = [];
   if (options.systemInstruction) {
     messages.push({ role: "system", content: options.systemInstruction });
@@ -281577,7 +281579,7 @@ async function generateGroqText(prompt, options = {}) {
           model,
           messages,
           temperature: options.temperature ?? 0.7,
-          max_tokens: options.maxTokens ?? 1500
+          max_tokens: options.maxTokens ?? 2048
         }),
         timeoutMs,
         `Groq API request timed out after ${timeoutMs}ms for model ${model}`
@@ -281599,7 +281601,7 @@ async function chatWithGroq(messages, options = {}) {
   const client = getClient();
   const configuredModel = getGroqModelName();
   const candidateModels = [configuredModel, ...CANDIDATE_GROQ_MODELS.filter((m) => m !== configuredModel)];
-  const timeoutMs = options.timeoutMs ?? 4500;
+  const timeoutMs = options.timeoutMs ?? 25e3;
   const groqMessages = [];
   if (options.systemInstruction) {
     groqMessages.push({ role: "system", content: options.systemInstruction });
@@ -281619,7 +281621,7 @@ async function chatWithGroq(messages, options = {}) {
           model,
           messages: groqMessages,
           temperature: options.temperature ?? 0.7,
-          max_tokens: options.maxTokens ?? 1500
+          max_tokens: options.maxTokens ?? 2048
         }),
         timeoutMs,
         `Groq chat request timed out after ${timeoutMs}ms for model ${model}`
@@ -281918,6 +281920,16 @@ async function academicChat(req, res, next) {
     let totalCredits = 0;
     let semesterStats = [];
     let cgpaResult = { cgpa: 0 };
+    if (import_mongoose20.default.connection.readyState !== 1) {
+      try {
+        await Promise.race([
+          connectDB(1),
+          new Promise((_, reject) => setTimeout(() => reject(new Error("DB connect timeout")), 5e3))
+        ]);
+      } catch (dbConnErr) {
+        logger.warn("DB connection wait timed out or failed in academicChat, proceeding without student data:", dbConnErr);
+      }
+    }
     const isDbConnected = import_mongoose20.default.connection.readyState === 1;
     if (isDbConnected && import_mongoose20.default.isValidObjectId(studentId)) {
       try {
@@ -284282,6 +284294,3 @@ crypto-js/mode-ctr-gladman.js:
    * Jan Hruby jhruby.web@gmail.com
    *)
 */
-
-module.exports = module.exports.default || module.exports;
-module.exports.default = module.exports;

@@ -6,6 +6,7 @@ import { ResultRecord } from '../models/ResultRecord';
 import { StudentProfile } from '../models/StudentProfile';
 import { AcademicRule } from '../models/AcademicRule';
 import { AppError } from '../utils/AppError';
+import { connectDB } from '../config/database';
 import {
   calculateSGPA,
   calculateCGPA,
@@ -363,6 +364,20 @@ export async function academicChat(req: AuthRequest, res: Response, next: NextFu
     let totalCredits = 0;
     let semesterStats: { semesterNumber: number; sgpa: number; credits: number; earnedCredits: number }[] = [];
     let cgpaResult = { cgpa: 0 };
+
+    // On Vercel serverless, the DB middleware fires connectDB() non-blocking.
+    // Explicitly wait for the connection to be ready (up to 5s) before querying.
+    if (mongoose.connection.readyState !== 1) {
+      try {
+        await Promise.race([
+          connectDB(1),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('DB connect timeout')), 5000)),
+        ]);
+      } catch (dbConnErr) {
+        logger.warn('DB connection wait timed out or failed in academicChat, proceeding without student data:', dbConnErr);
+      }
+    }
+
     const isDbConnected = mongoose.connection.readyState === 1;
 
     if (isDbConnected && mongoose.isValidObjectId(studentId)) {

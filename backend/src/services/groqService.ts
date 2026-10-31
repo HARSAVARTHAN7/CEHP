@@ -49,8 +49,10 @@ export interface GroqTextOptions {
  */
 const CANDIDATE_GROQ_MODELS = [
   'qwen/qwen3.8-27b',
-  'openai/gpt-oss-120b',
-  'openai/gpt-oss-20b',
+  'llama-3.3-70b-versatile',
+  'llama-3.1-8b-instant',
+  'gemma2-9b-it',
+  'mixtral-8x7b-32768',
 ];
 
 async function withTimeout<T>(promise: Promise<T>, ms: number, errorMsg: string): Promise<T> {
@@ -71,7 +73,7 @@ export async function generateGroqText(
   const client = getClient();
   const configuredModel = getGroqModelName();
   const candidateModels = [configuredModel, ...CANDIDATE_GROQ_MODELS.filter((m) => m !== configuredModel)];
-  const timeoutMs = options.timeoutMs ?? 10000;
+  const timeoutMs = options.timeoutMs ?? 25000;
 
   const messages: Groq.Chat.ChatCompletionMessageParam[] = [];
   if (options.systemInstruction) {
@@ -88,7 +90,7 @@ export async function generateGroqText(
           model,
           messages,
           temperature: options.temperature ?? 0.7,
-          max_tokens: options.maxTokens ?? 1500,
+          max_tokens: options.maxTokens ?? 2048,
         }),
         timeoutMs,
         `Groq API request timed out after ${timeoutMs}ms for model ${model}`
@@ -119,7 +121,7 @@ export async function chatWithGroq(
   const client = getClient();
   const configuredModel = getGroqModelName();
   const candidateModels = [configuredModel, ...CANDIDATE_GROQ_MODELS.filter((m) => m !== configuredModel)];
-  const timeoutMs = options.timeoutMs ?? 4500;
+  const timeoutMs = options.timeoutMs ?? 25000;
 
   const groqMessages: Groq.Chat.ChatCompletionMessageParam[] = [];
   if (options.systemInstruction) {
@@ -143,7 +145,7 @@ export async function chatWithGroq(
           model,
           messages: groqMessages,
           temperature: options.temperature ?? 0.7,
-          max_tokens: options.maxTokens ?? 1500,
+          max_tokens: options.maxTokens ?? 2048,
         }),
         timeoutMs,
         `Groq chat request timed out after ${timeoutMs}ms for model ${model}`
