@@ -34,7 +34,7 @@ function getClient(): Groq {
 }
 
 export function getGroqModelName(): string {
-  return process.env.GROQ_MODEL || config.groq.model || 'qwen/qwen3.8-27b';
+  return process.env.GROQ_MODEL || config.groq.model || 'llama-3.3-70b-versatile';
 }
 
 export interface GroqTextOptions {
@@ -48,11 +48,11 @@ export interface GroqTextOptions {
  * Supported Groq candidate models in order of priority for seamless failover.
  */
 const CANDIDATE_GROQ_MODELS = [
-  'qwen/qwen3.8-27b',
   'llama-3.3-70b-versatile',
   'llama-3.1-8b-instant',
-  'gemma2-9b-it',
   'mixtral-8x7b-32768',
+  'gemma2-9b-it',
+  'deepseek-r1-distill-llama-70b',
 ];
 
 async function withTimeout<T>(promise: Promise<T>, ms: number, errorMsg: string): Promise<T> {

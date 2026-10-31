@@ -15,7 +15,7 @@ from .academic_rules import (
 class LLMService:
     def __init__(self):
         self.groq_key = settings.GROQ_API_KEY
-        self.groq_model = settings.GROQ_MODEL or "qwen/qwen3.8-27b"
+        self.groq_model = settings.GROQ_MODEL or "llama-3.3-70b-versatile"
         self.fallback = settings.FALLBACK_TO_RULES
 
     async def get_performance_summary(self, profile: StudentAcademicProfile) -> PerformanceSummaryResponse:

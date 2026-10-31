@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     
     # AI Providers / Keys
     GROQ_API_KEY: str = ""
-    GROQ_MODEL: str = "qwen/qwen3.8-27b"
+    GROQ_MODEL: str = "llama-3.3-70b-versatile"
     FALLBACK_TO_RULES: bool = True
     
     # Backend URL for verification if needed

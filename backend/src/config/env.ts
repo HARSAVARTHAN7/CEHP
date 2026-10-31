@@ -14,7 +14,7 @@ const envSchema = z.object({
   FRONTEND_ORIGIN: z.string().default('http://localhost:5173'),
   AI_SERVICE_URL: z.string().default('http://localhost:8001'),
   GROQ_API_KEY: z.string().optional(),
-  GROQ_MODEL: z.string().default('qwen/qwen3.8-27b'),
+  GROQ_MODEL: z.string().default('llama-3.3-70b-versatile'),
   LLM_PROVIDER: z.string().optional(),
   LLM_API_KEY: z.string().optional(),
   LLM_MODEL: z.string().optional(),
@@ -49,12 +49,12 @@ export const config = {
   aiServiceUrl: safeData.AI_SERVICE_URL,
   groq: {
     apiKey: safeData.GROQ_API_KEY || (safeData.LLM_PROVIDER === 'groq' ? safeData.LLM_API_KEY : '') || '',
-    model: safeData.GROQ_MODEL || (safeData.LLM_PROVIDER === 'groq' ? safeData.LLM_MODEL : '') || 'qwen/qwen3.8-27b',
+    model: safeData.GROQ_MODEL || (safeData.LLM_PROVIDER === 'groq' ? safeData.LLM_MODEL : '') || 'llama-3.3-70b-versatile',
   },
   llm: {
     provider: safeData.LLM_PROVIDER || 'groq',
     apiKey: safeData.GROQ_API_KEY || safeData.LLM_API_KEY || '',
-    model: safeData.GROQ_MODEL || safeData.LLM_MODEL || 'qwen/qwen3.8-27b',
+    model: safeData.GROQ_MODEL || safeData.LLM_MODEL || 'llama-3.3-70b-versatile',
   },
   bcryptRounds: parseInt(safeData.BCRYPT_ROUNDS, 10),
   maxUploadSizeMb: parseInt(safeData.MAX_UPLOAD_SIZE_MB, 10),
